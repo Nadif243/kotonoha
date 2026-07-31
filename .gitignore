@@ -1,0 +1,14 @@
+# Node dependencies
+node_modules/
+
+# Tauri & Rust build output
+src-tauri/target/
+
+# Local SQLite databases
+*.db
+*.db-journal
+
+# Environment & IDE
+.env
+.vscode/
+.DS_Store
