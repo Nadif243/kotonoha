@@ -1,0 +1,141 @@
+.grid-workbench {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.entry-form {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background-color: #18181b;
+  border-bottom: 1px solid #27272a;
+  flex-wrap: wrap;
+}
+
+.entry-form input,
+.entry-form select {
+  background-color: #09090b;
+  border: 1px solid #27272a;
+  color: #f4f4f5;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.entry-form input:focus,
+.entry-form select:focus {
+  border-color: #3f3f46;
+}
+
+.entry-form input {
+  flex: 1;
+  min-width: 130px;
+}
+
+.entry-form button {
+  background-color: #27272a;
+  color: #ffffff;
+  border: 1px solid #3f3f46;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.entry-form button:hover {
+  background-color: #3f3f46;
+}
+
+.table-container {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.data-table th {
+  background-color: #18181b;
+  color: #71717a;
+  font-weight: 600;
+  padding: 10px 14px;
+  border-bottom: 1px solid #27272a;
+  position: sticky;
+  top: 0;
+}
+
+.data-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #18181b;
+  color: #d4d4d8;
+}
+
+.data-table tbody tr {
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.data-table tbody tr:hover {
+  background-color: #18181b;
+}
+
+.data-table tbody tr.selected {
+  background-color: #27272a;
+}
+
+.empty-row {
+  text-align: center;
+  color: #52525b;
+  padding: 40px !important;
+}
+
+.col-label {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.col-seq {
+  color: #52525b;
+  font-size: 0.8rem;
+  width: 40px;
+}
+
+.type-badge {
+  font-size: 0.7rem;
+  background-color: #27272a;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #a1a1aa;
+}
+
+.priority-badge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.priority-badge.hard {
+  background-color: #451a03;
+  color: #f97316;
+}
+
+.priority-badge.review {
+  background-color: #1e1b4b;
+  color: #818cf8;
+}
+
+.priority-badge.settled {
+  background-color: #064e3b;
+  color: #34d399;
+}

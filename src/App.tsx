@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import "./App.css";
 import { getDb, getAllNodes } from "./core/db";
 import { NodeEntity } from "./types/database";
+import GridView from "./components/GridView";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"grid" | "graph">("grid");
@@ -48,14 +49,11 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Workspace Layout */}
+      {/* Main Workspace */}
       <main className="workspace">
         <div className="main-content">
           {activeTab === "grid" ? (
-            <div className="placeholder-box">
-              <p>Grid View (Excel Workbench)</p>
-              <small className="subtext">Loaded Nodes: {nodes.length}</small>
-            </div>
+            <GridView nodes={nodes} onNodesChange={setNodes} />
           ) : (
             <div className="placeholder-box">Graph Canvas (2D Cytoscape Engine)</div>
           )}

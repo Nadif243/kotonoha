@@ -103,3 +103,12 @@ body {
   background-color: #14532d;
   color: #4ade80;
 }
+
+.context-box {
+  background-color: #09090b;
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid #27272a;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
