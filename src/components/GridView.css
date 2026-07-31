@@ -139,3 +139,36 @@
   background-color: #064e3b;
   color: #34d399;
 }
+
+.priority-badge.clickable {
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.priority-badge.clickable:hover {
+  opacity: 0.85;
+  transform: scale(1.03);
+}
+
+.col-actions {
+  text-align: center;
+  width: 60px;
+}
+
+.btn-delete {
+  background: transparent;
+  border: none;
+  color: #71717a;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.btn-delete:hover {
+  color: #ef4444;
+  background-color: #27272a;
+}

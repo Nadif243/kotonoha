@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NodeEntity, PriorityStatus, DomainType } from "../types/database";
-import { insertNode, getAllNodes } from "../core/db";
+import { insertNode, deleteNode, updateNodePriority, getAllNodes } from "../core/db";
 import "./GridView.css";
 
 interface GridViewProps {
@@ -49,6 +49,34 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
       setPersonalContext("");
     } catch (err) {
       console.error("Failed to insert node:", err);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteNode(id);
+      const updated = await getAllNodes();
+      onNodesChange(updated);
+    } catch (err) {
+      console.error("Failed to delete node:", err);
+    }
+  };
+
+  const handleCyclePriority = async (node: NodeEntity) => {
+    const cycleMap: Record<PriorityStatus, PriorityStatus> = {
+      HARD: "REVIEW",
+      REVIEW: "SETTLED",
+      SETTLED: "HARD",
+    };
+
+    const nextPriority = cycleMap[node.priority_status];
+
+    try {
+      await updateNodePriority(node.id, nextPriority);
+      const updated = await getAllNodes();
+      onNodesChange(updated);
+    } catch (err) {
+      console.error("Failed to update priority:", err);
     }
   };
 
@@ -110,13 +138,14 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
               <th>Reading</th>
               <th>English Meaning</th>
               <th>Type</th>
-              <th>Priority</th>
+              <th>Priority (Click to Cycle)</th>
+              <th className="col-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
             {nodes.length === 0 ? (
               <tr>
-                <td colSpan={6} className="empty-row">
+                <td colSpan={7} className="empty-row">
                   No items logged yet. Use the bar above to manually create your first node.
                 </td>
               </tr>
@@ -131,9 +160,24 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
                     <span className="type-badge">{node.domain_type}</span>
                   </td>
                   <td>
-                    <span className={`priority-badge ${node.priority_status.toLowerCase()}`}>
+                    <button
+                      type="button"
+                      className={`priority-badge clickable ${node.priority_status.toLowerCase()}`}
+                      onClick={() => handleCyclePriority(node)}
+                      title="Click to toggle priority status"
+                    >
                       {node.priority_status}
-                    </span>
+                    </button>
+                  </td>
+                  <td className="col-actions">
+                    <button
+                      type="button"
+                      className="btn-delete"
+                      onClick={() => handleDelete(node.id)}
+                      title="Delete entry"
+                    >
+                      ×
+                    </button>
                   </td>
                 </tr>
               ))

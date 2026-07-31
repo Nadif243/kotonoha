@@ -1,5 +1,5 @@
 import Database from "@tauri-apps/plugin-sql";
-import { NodeEntity, EdgeEntity } from "../types/database";
+import { NodeEntity, EdgeEntity, PriorityStatus } from "../types/database";
 
 let dbInstance: Database | null = null;
 
@@ -77,6 +77,19 @@ export async function insertNode(node: Omit<NodeEntity, "created_at" | "updated_
       node.attributes || null,
     ]
   );
+}
+
+export async function deleteNode(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("DELETE FROM nodes WHERE id = $1;", [id]);
+}
+
+export async function updateNodePriority(id: string, priority: PriorityStatus): Promise<void> {
+  const db = await getDb();
+  await db.execute("UPDATE nodes SET priority_status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2;", [
+    priority,
+    id,
+  ]);
 }
 
 /**
