@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import "./App.css";
-import { getDb, getAllNodes } from "./core/db";
-import { NodeEntity } from "./types/database";
+import { getDb, getAllNodes, getAllEdges } from "./core/db";
+import { NodeEntity, EdgeEntity } from "./types/database";
 import GridView from "./components/GridView";
+import GraphCanvas from "./components/GraphCanvas";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"grid" | "graph">("grid");
   const [dbReady, setDbReady] = useState<boolean>(false);
   const [nodes, setNodes] = useState<NodeEntity[]>([]);
+  const [edges, setEdges] = useState<EdgeEntity[]>([]);
 
   useEffect(() => {
     async function init() {
@@ -15,7 +17,9 @@ export default function App() {
         await getDb();
         setDbReady(true);
         const initialNodes = await getAllNodes();
+        const initialEdges = await getAllEdges();
         setNodes(initialNodes);
+        setEdges(initialEdges);
       } catch (err) {
         console.error("Failed to initialize database:", err);
       }
@@ -25,7 +29,7 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* Top Header / View Toggle */}
+      {/* Header */}
       <header className="app-header">
         <div className="header-left">
           <h1 className="app-title">言x葉 Kotonoha</h1>
@@ -55,7 +59,7 @@ export default function App() {
           {activeTab === "grid" ? (
             <GridView nodes={nodes} onNodesChange={setNodes} />
           ) : (
-            <div className="placeholder-box">Graph Canvas (2D Cytoscape Engine)</div>
+            <GraphCanvas nodes={nodes} edges={edges} onEdgesChange={setEdges} />
           )}
         </div>
       </main>

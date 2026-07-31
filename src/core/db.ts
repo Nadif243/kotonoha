@@ -13,6 +13,9 @@ export async function getDb(): Promise<Database> {
   // Opens or creates 'kotonoha.db' inside the app data directory
   dbInstance = await Database.load("sqlite:kotonoha_v1.db");
 
+  // Force foreign key enforcement for cascading deletions
+  await dbInstance.execute("PRAGMA foreign_keys = ON;");
+
   // Create Nodes table
   await dbInstance.execute(`
     CREATE TABLE IF NOT EXISTS nodes (
@@ -60,6 +63,22 @@ export async function getAllNodes(): Promise<NodeEntity[]> {
 }
 
 /**
+ * Checks if an exact duplicate (Label + Reading + English Meaning) already exists in SQLite.
+ */
+export async function checkDuplicateNode(
+  label: string,
+  reading: string,
+  meaningEn: string
+): Promise<boolean> {
+  const db = await getDb();
+  const result = await db.select<{ count: number }[]>(
+    "SELECT COUNT(*) as count FROM nodes WHERE LOWER(label) = LOWER($1) AND LOWER(reading) = LOWER($2) AND LOWER(meaning_en) = LOWER($3);",
+    [label, reading, meaningEn]
+  );
+  return result[0].count > 0;
+}
+
+/**
  * Inserts a new node into the database.
  */
 export async function insertNode(node: Omit<NodeEntity, "created_at" | "updated_at">): Promise<void> {
@@ -79,8 +98,13 @@ export async function insertNode(node: Omit<NodeEntity, "created_at" | "updated_
   );
 }
 
+/**
+ * Deletes a node AND purges any edges connected to it.
+ */
 export async function deleteNode(id: string): Promise<void> {
   const db = await getDb();
+  // Manually delete attached edges to prevent orphan relations
+  await db.execute("DELETE FROM edges WHERE source_node_id = $1 OR target_node_id = $1;", [id]);
   await db.execute("DELETE FROM nodes WHERE id = $1;", [id]);
 }
 
@@ -101,17 +125,45 @@ export async function getAllEdges(): Promise<EdgeEntity[]> {
 }
 
 /**
- * Checks if an exact duplicate (Label + Reading + English Meaning) already exists in SQLite.
+ * Checks if the exact same edge relation already connects source -> target.
  */
-export async function checkDuplicateNode(
-  label: string,
-  reading: string,
-  meaningEn: string
+export async function checkDuplicateEdge(
+  sourceId: string,
+  targetId: string,
+  relationType: string
 ): Promise<boolean> {
   const db = await getDb();
   const result = await db.select<{ count: number }[]>(
-    "SELECT COUNT(*) as count FROM nodes WHERE LOWER(label) = LOWER($1) AND LOWER(reading) = LOWER($2) AND LOWER(meaning_en) = LOWER($3);",
-    [label, reading, meaningEn]
+    "SELECT COUNT(*) as count FROM edges WHERE source_node_id = $1 AND target_node_id = $2 AND relation_type = $3;",
+    [sourceId, targetId, relationType]
   );
   return result[0].count > 0;
+}
+
+/**
+ * Inserts a new edge connecting two existing nodes.
+ */
+export async function insertEdge(edge: Omit<EdgeEntity, "id">): Promise<void> {
+  const db = await getDb();
+  const id = `edge_${Date.now()}`;
+  await db.execute(
+    `INSERT INTO edges (id, source_node_id, target_node_id, relation_type, is_directional, notes)
+     VALUES ($1, $2, $3, $4, $5, $6);`,
+    [
+      id,
+      edge.source_node_id,
+      edge.target_node_id,
+      edge.relation_type,
+      edge.is_directional ? 1 : 0,
+      edge.notes || null,
+    ]
+  );
+}
+
+/**
+ * Deletes an edge by ID.
+ */
+export async function deleteEdge(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("DELETE FROM edges WHERE id = $1;", [id]);
 }

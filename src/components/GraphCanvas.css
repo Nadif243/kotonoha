@@ -1,0 +1,78 @@
+.graph-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  position: relative;
+  background-color: #09090b;
+}
+
+.canvas-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  z-index: 10;
+  background-color: #18181b;
+  border: 1px solid #27272a;
+  padding: 8px 14px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.connection-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-label {
+  font-size: 0.8rem;
+  color: #a1a1aa;
+}
+
+.connection-controls select {
+  background-color: #09090b;
+  border: 1px solid #27272a;
+  color: #f4f4f5;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.btn-cancel {
+  background-color: #27272a;
+  color: #ef4444;
+  border: 1px solid #3f3f46;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.empty-canvas-msg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #52525b;
+  font-size: 0.95rem;
+  letter-spacing: 0.5px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.cytoscape-canvas {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.15s ease-in-out;
+}
+
+.cytoscape-canvas.ready {
+  opacity: 1;
+}
