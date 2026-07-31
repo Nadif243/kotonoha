@@ -19,7 +19,9 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
 
   const handleAddNode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!label.trim()) return;
+
+    // Require all 3 fields to exist before inserting
+    if (!label.trim() || !reading.trim() || !meaningEn.trim()) return;
 
     const id = `node_${Date.now()}`;
     const attributesJSON = JSON.stringify({
@@ -31,8 +33,8 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
       await insertNode({
         id,
         label: label.trim(),
-        reading: reading.trim() || undefined,
-        meaning_en: meaningEn.trim() || undefined,
+        reading: reading.trim(),
+        meaning_en: meaningEn.trim(),
         domain_type: domainType,
         priority_status: priorityStatus,
         attributes: attributesJSON,
@@ -96,12 +98,14 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
           placeholder="Reading (e.g., あける)"
           value={reading}
           onChange={(e) => setReading(e.target.value)}
+          required
         />
         <input
           type="text"
           placeholder="English Meaning (e.g., To open)"
           value={meaningEn}
           onChange={(e) => setMeaningEn(e.target.value)}
+          required
         />
         <select
           value={domainType}
