@@ -1,14 +1,37 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./App.css";
+import { getDb, getAllNodes } from "./core/db";
+import { NodeEntity } from "./types/database";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"grid" | "graph">("grid");
+  const [dbReady, setDbReady] = useState<boolean>(false);
+  const [nodes, setNodes] = useState<NodeEntity[]>([]);
+
+  useEffect(() => {
+    async function init() {
+      try {
+        await getDb();
+        setDbReady(true);
+        const initialNodes = await getAllNodes();
+        setNodes(initialNodes);
+      } catch (err) {
+        console.error("Failed to initialize database:", err);
+      }
+    }
+    init();
+  }, []);
 
   return (
     <div className="app-container">
       {/* Top Header / View Toggle */}
       <header className="app-header">
-        <h1 className="app-title">言x葉 Kotonoha</h1>
+        <div className="header-left">
+          <h1 className="app-title">言x葉 Kotonoha</h1>
+          <span className={`db-badge ${dbReady ? "online" : ""}`}>
+            {dbReady ? "DB Ready" : "Connecting DB..."}
+          </span>
+        </div>
         <div className="view-toggle">
           <button
             className={activeTab === "grid" ? "active" : ""}
@@ -29,7 +52,10 @@ export default function App() {
       <main className="workspace">
         <div className="main-content">
           {activeTab === "grid" ? (
-            <div className="placeholder-box">Grid View (Excel Workbench)</div>
+            <div className="placeholder-box">
+              <p>Grid View (Excel Workbench)</p>
+              <small className="subtext">Loaded Nodes: {nodes.length}</small>
+            </div>
           ) : (
             <div className="placeholder-box">Graph Canvas (2D Cytoscape Engine)</div>
           )}
