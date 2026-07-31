@@ -99,3 +99,19 @@ export async function getAllEdges(): Promise<EdgeEntity[]> {
   const db = await getDb();
   return await db.select<EdgeEntity[]>("SELECT * FROM edges;");
 }
+
+/**
+ * Checks if an exact duplicate (Label + Reading + English Meaning) already exists in SQLite.
+ */
+export async function checkDuplicateNode(
+  label: string,
+  reading: string,
+  meaningEn: string
+): Promise<boolean> {
+  const db = await getDb();
+  const result = await db.select<{ count: number }[]>(
+    "SELECT COUNT(*) as count FROM nodes WHERE LOWER(label) = LOWER($1) AND LOWER(reading) = LOWER($2) AND LOWER(meaning_en) = LOWER($3);",
+    [label, reading, meaningEn]
+  );
+  return result[0].count > 0;
+}

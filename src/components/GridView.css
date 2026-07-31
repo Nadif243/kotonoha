@@ -177,3 +177,14 @@
   color: #ef4444;
   background-color: #27272a;
 }
+
+.error-banner {
+  background-color: #451a03;
+  color: #f97316;
+  border-bottom: 1px solid #7c2d12;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NodeEntity, PriorityStatus, DomainType } from "../types/database";
-import { insertNode, deleteNode, updateNodePriority, getAllNodes } from "../core/db";
+import { insertNode, deleteNode, updateNodePriority, checkDuplicateNode, getAllNodes } from "../core/db";
 import "./GridView.css";
 
 interface GridViewProps {
@@ -16,25 +16,38 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
   const [domainType, setDomainType] = useState<DomainType>("LEXICAL");
   const [priorityStatus, setPriorityStatus] = useState<PriorityStatus>("REVIEW");
   const [personalContext, setPersonalContext] = useState("");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleAddNode = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
 
-    // Require all 3 fields to exist before inserting
-    if (!label.trim() || !reading.trim() || !meaningEn.trim()) return;
+    const trimmedLabel = label.trim();
+    const trimmedReading = reading.trim();
+    const trimmedMeaning = meaningEn.trim();
 
-    const id = `node_${Date.now()}`;
-    const attributesJSON = JSON.stringify({
-      personal_context: personalContext || "",
-      example_sentences: [],
-    });
+    // 1. Require all 3 fields
+    if (!trimmedLabel || !trimmedReading || !trimmedMeaning) return;
 
     try {
+      // 2. Check for exact 3-field duplicate
+      const isDuplicate = await checkDuplicateNode(trimmedLabel, trimmedReading, trimmedMeaning);
+      if (isDuplicate) {
+        setErrorMsg(`"${trimmedLabel} (${trimmedReading})" with meaning "${trimmedMeaning}" already exists!`);
+        return;
+      }
+
+      const id = `node_${Date.now()}`;
+      const attributesJSON = JSON.stringify({
+        personal_context: personalContext || "",
+        example_sentences: [],
+      });
+
       await insertNode({
         id,
-        label: label.trim(),
-        reading: reading.trim(),
-        meaning_en: meaningEn.trim(),
+        label: trimmedLabel,
+        reading: trimmedReading,
+        meaning_en: trimmedMeaning,
         domain_type: domainType,
         priority_status: priorityStatus,
         attributes: attributesJSON,
@@ -49,6 +62,7 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
       setReading("");
       setMeaningEn("");
       setPersonalContext("");
+      setErrorMsg(null);
     } catch (err) {
       console.error("Failed to insert node:", err);
     }
@@ -131,6 +145,9 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
         />
         <button type="submit">+ Add Entry</button>
       </form>
+
+      {/* Duplicate Warning Banner */}
+      {errorMsg && <div className="error-banner">{errorMsg}</div>}
 
       {/* Data Table */}
       <div className="table-container">
