@@ -12,9 +12,9 @@
   "app": {
     "windows": [
       {
-        "title": "kotonoha",
-        "width": 800,
-        "height": 600
+        "title": "言x葉 Kotonoha",
+        "width": 1200,
+        "height": 800
       }
     ],
     "security": {
