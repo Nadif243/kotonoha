@@ -11,7 +11,7 @@ export async function getDb(): Promise<Database> {
   if (dbInstance) return dbInstance;
 
   // Opens or creates 'kotonoha.db' inside the app data directory
-  dbInstance = await Database.load("sqlite:kotonoha.db");
+  dbInstance = await Database.load("sqlite:kotonoha_v1.db");
 
   // Create Nodes table
   await dbInstance.execute(`
@@ -22,7 +22,6 @@ export async function getDb(): Promise<Database> {
         meaning_en TEXT,
         domain_type TEXT NOT NULL,
         priority_status TEXT DEFAULT 'REVIEW',
-        sequence_order INTEGER,
         attributes TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -57,13 +56,13 @@ export async function getDb(): Promise<Database> {
  */
 export async function getAllNodes(): Promise<NodeEntity[]> {
   const db = await getDb();
-  return await db.select<NodeEntity[]>("SELECT * FROM nodes ORDER BY sequence_order DESC;");
+  return await db.select<NodeEntity[]>("SELECT * FROM nodes ORDER BY created_at DESC, rowid DESC;");
 }
 
 /**
  * Inserts a new node into the database.
  */
-export async function insertNode(node: Omit<NodeEntity, "sequence_order" | "created_at" | "updated_at">): Promise<void> {
+export async function insertNode(node: Omit<NodeEntity, "created_at" | "updated_at">): Promise<void> {
   const db = await getDb();
   await db.execute(
     `INSERT INTO nodes (id, label, reading, meaning_en, domain_type, priority_status, attributes)

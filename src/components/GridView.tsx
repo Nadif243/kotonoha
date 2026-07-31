@@ -42,7 +42,7 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
       const updated = await getAllNodes();
       onNodesChange(updated);
 
-      // Clear input fields for next entry
+      // Reset form
       setLabel("");
       setReading("");
       setMeaningEn("");
