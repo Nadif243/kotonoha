@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import cytoscape, { Core } from "cytoscape";
 import { NodeEntity, EdgeEntity } from "../types/database";
-import { insertEdge, deleteEdge, checkDuplicateEdge, getAllEdges } from "../core/db";
+import { insertEdge, deleteEdge, checkEdgeConflict, getAllEdges } from "../core/db";
 import "./GraphCanvas.css";
 
 interface GraphCanvasProps {
@@ -28,12 +28,15 @@ export default function GraphCanvas({
 
   const [isCanvasReady, setIsCanvasReady] = useState<boolean>(false);
 
+  // Synchronizes React state, Ref, and Cytoscape node highlights
   const setSourceNode = (id: string | null) => {
     sourceNodeIdRef.current = id;
     setSourceNodeIdState(id);
 
-    if (!id && cyRef.current) {
-      cyRef.current.nodes().unselect();
+    if (cyRef.current) {
+      if (!id) {
+        cyRef.current.nodes().unselect();
+      }
     }
   };
 
@@ -156,13 +159,12 @@ export default function GraphCanvas({
             "background-color": "#27272a",
           },
         },
+        // Base Edge Style
         {
           selector: "edge",
           style: {
             width: 1.5,
             "line-color": "#3f3f46",
-            "target-arrow-color": "#52525b",
-            "target-arrow-shape": "vee",
             "curve-style": "bezier",
             label: "data(label)",
             color: "#a1a1aa",
@@ -175,11 +177,31 @@ export default function GraphCanvas({
             "text-border-radius": "2px",
           },
         },
+        // Symmetric Relations (Double Arrow)
+        {
+          selector: 'edge[label = "SYNONYM"], edge[label = "OPPOSITE"], edge[label = "SIMILAR_KANJI"]',
+          style: {
+            "source-arrow-shape": "vee",
+            "target-arrow-shape": "vee",
+            "source-arrow-color": "#52525b",
+            "target-arrow-color": "#52525b",
+          },
+        },
+        // Directional Relations (Single Arrow)
+        {
+          selector: 'edge[label = "TRANSITIVE_PAIR"], edge[label = "USES_GRAMMAR"]',
+          style: {
+            "source-arrow-shape": "none",
+            "target-arrow-shape": "vee",
+            "target-arrow-color": "#52525b",
+          },
+        },
         {
           selector: "edge:hover",
           style: {
             width: 2.5,
             "line-color": "#ef4444",
+            "source-arrow-color": "#ef4444",
             "target-arrow-color": "#ef4444",
             color: "#ef4444",
           },
@@ -213,7 +235,6 @@ export default function GraphCanvas({
         setSourceNode(clickedNodeId);
       } else if (currentSource !== clickedNodeId) {
         handleCreateEdge(currentSource, clickedNodeId);
-        setSourceNode(null);
       } else {
         setSourceNode(null);
       }
@@ -261,9 +282,11 @@ export default function GraphCanvas({
 
     try {
       // Prevent identical duplicate edge creation
-      const isDuplicate = await checkDuplicateEdge(sourceId, targetId, activeRelation);
-      if (isDuplicate) {
-        alert(`This exact connection ("${activeRelation}") already exists between these nodes!`);
+      const conflictCheck = await checkEdgeConflict(sourceId, targetId, activeRelation);
+
+      if (conflictCheck.hasError) {
+        alert(conflictCheck.message);
+        setSourceNode(null); // Instantly clears white highlight on error
         return;
       }
 
@@ -271,13 +294,15 @@ export default function GraphCanvas({
         source_node_id: sourceId,
         target_node_id: targetId,
         relation_type: activeRelation,
-        is_directional: true,
+        is_directional: ["TRANSITIVE_PAIR", "USES_GRAMMAR"].includes(activeRelation),
       });
 
       const updatedEdges = await getAllEdges();
       onEdgesChange(updatedEdges || []);
     } catch (err) {
       console.error("Failed to create edge:", err);
+    } finally {
+      setSourceNode(null); // Always reset selection state
     }
   };
 

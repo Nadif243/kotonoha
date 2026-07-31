@@ -125,19 +125,51 @@ export async function getAllEdges(): Promise<EdgeEntity[]> {
 }
 
 /**
- * Checks if the exact same edge relation already connects source -> target.
+ * Validates edge creation: checks self-links, exact duplicates, and SYNONYM vs OPPOSITE conflicts.
  */
-export async function checkDuplicateEdge(
+export async function checkEdgeConflict(
   sourceId: string,
   targetId: string,
   relationType: string
-): Promise<boolean> {
+): Promise<{ hasError: boolean; message?: string }> {
+  // 1. Block Self-linking
+  if (sourceId === targetId) {
+    return { hasError: true, message: "A node cannot link to itself!" };
+  }
+
   const db = await getDb();
-  const result = await db.select<{ count: number }[]>(
-    "SELECT COUNT(*) as count FROM edges WHERE source_node_id = $1 AND target_node_id = $2 AND relation_type = $3;",
+
+  // 2. Check exact duplicate (either direction)
+  const dupResult = await db.select<{ count: number }[]>(
+    `SELECT COUNT(*) as count FROM edges
+     WHERE relation_type = $3
+     AND ((source_node_id = $1 AND target_node_id = $2) OR (source_node_id = $2 AND target_node_id = $1));`,
     [sourceId, targetId, relationType]
   );
-  return result[0].count > 0;
+
+  if (dupResult[0].count > 0) {
+    return { hasError: true, message: `The connection "${relationType}" already exists between these nodes!` };
+  }
+
+  // 3. Mutual exclusion check between SYNONYM and OPPOSITE
+  if (relationType === "SYNONYM" || relationType === "OPPOSITE") {
+    const conflictingType = relationType === "SYNONYM" ? "OPPOSITE" : "SYNONYM";
+    const conflictResult = await db.select<{ count: number }[]>(
+      `SELECT COUNT(*) as count FROM edges
+       WHERE relation_type = $3
+       AND ((source_node_id = $1 AND target_node_id = $2) OR (source_node_id = $2 AND target_node_id = $1));`,
+      [sourceId, targetId, conflictingType]
+    );
+
+    if (conflictResult[0].count > 0) {
+      return {
+        hasError: true,
+        message: `Cannot add "${relationType}" because these nodes are already linked as "${conflictingType}"!`,
+      };
+    }
+  }
+
+  return { hasError: false };
 }
 
 /**
@@ -146,6 +178,11 @@ export async function checkDuplicateEdge(
 export async function insertEdge(edge: Omit<EdgeEntity, "id">): Promise<void> {
   const db = await getDb();
   const id = `edge_${Date.now()}`;
+
+  // Symmetric relations are flagged as non-directional
+  const directionalTypes = ["TRANSITIVE_PAIR", "USES_GRAMMAR"];
+  const isDirectional = directionalTypes.includes(edge.relation_type);
+
   await db.execute(
     `INSERT INTO edges (id, source_node_id, target_node_id, relation_type, is_directional, notes)
      VALUES ($1, $2, $3, $4, $5, $6);`,
@@ -154,7 +191,7 @@ export async function insertEdge(edge: Omit<EdgeEntity, "id">): Promise<void> {
       edge.source_node_id,
       edge.target_node_id,
       edge.relation_type,
-      edge.is_directional ? 1 : 0,
+      isDirectional ? 1 : 0,
       edge.notes || null,
     ]
   );
