@@ -18,31 +18,69 @@ export default function GraphCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
 
-  // State & Ref tracking for Node selection
+  // Link creation state & ref tracking
   const [sourceNodeId, setSourceNodeIdState] = useState<string | null>(null);
   const sourceNodeIdRef = useRef<string | null>(null);
 
-  // State & Ref tracking for Dropdown Relation Type
   const [relationType, setRelationTypeState] = useState<string>("SIMILAR_KANJI");
   const relationTypeRef = useRef<string>("SIMILAR_KANJI");
 
   const [isCanvasReady, setIsCanvasReady] = useState<boolean>(false);
 
-  // Synchronizes React state, Ref, and Cytoscape node highlights
+  // Node Inspector Modal State
+  const [inspectedNode, setInspectedNode] = useState<NodeEntity | null>(null);
+
   const setSourceNode = (id: string | null) => {
     sourceNodeIdRef.current = id;
     setSourceNodeIdState(id);
 
-    if (cyRef.current) {
-      if (!id) {
-        cyRef.current.nodes().unselect();
-      }
+    if (cyRef.current && !id) {
+      cyRef.current.nodes().unselect();
     }
   };
 
   const handleRelationChange = (newType: string) => {
     relationTypeRef.current = newType;
     setRelationTypeState(newType);
+  };
+
+  // Helper to safely extract personal_context from node attributes JSON
+  const getPersonalContext = (attributesStr?: string): string => {
+    if (!attributesStr) return "";
+    try {
+      const parsed = JSON.parse(attributesStr);
+      return parsed.personal_context || "";
+    } catch {
+      return "";
+    }
+  };
+
+  // Viewport Control Handlers
+  const handleZoomIn = () => {
+    if (!cyRef.current) return;
+    cyRef.current.zoom({
+      level: cyRef.current.zoom() * 1.25,
+      renderedPosition: {
+        x: cyRef.current.width() / 2,
+        y: cyRef.current.height() / 2,
+      },
+    });
+  };
+
+  const handleZoomOut = () => {
+    if (!cyRef.current) return;
+    cyRef.current.zoom({
+      level: cyRef.current.zoom() * 0.8,
+      renderedPosition: {
+        x: cyRef.current.width() / 2,
+        y: cyRef.current.height() / 2,
+      },
+    });
+  };
+
+  const handleFitView = () => {
+    if (!cyRef.current) return;
+    cyRef.current.fit(undefined, 40);
   };
 
   useEffect(() => {
@@ -226,7 +264,7 @@ export default function GraphCanvas({
       setIsCanvasReady(true);
     }, 50);
 
-    // Tap Node: Link creation reading from Refs
+    // Single Tap: Select node for linking
     cy.on("tap", "node", (evt) => {
       const clickedNodeId = evt.target.id();
       const currentSource = sourceNodeIdRef.current;
@@ -240,7 +278,17 @@ export default function GraphCanvas({
       }
     });
 
-    // Tap Edge: Confirmation modal to delete
+    // Double Tap: Open Inspector Modal
+    cy.on("dbltap", "node", (evt) => {
+      const clickedId = evt.target.id();
+      const targetNode = safeNodes.find((n) => n.id === clickedId);
+      if (targetNode) {
+        setInspectedNode(targetNode);
+        setSourceNode(null); // Clear linking state when inspecting
+      }
+    });
+
+    // Tap Edge: Confirmation modal to delete link
     cy.on("tap", "edge", async (evt) => {
       const edgeId = evt.target.id();
       const edgeData = evt.target.data();
@@ -308,13 +356,13 @@ export default function GraphCanvas({
 
   return (
     <div className="graph-container">
-      {/* Canvas Toolbar */}
+      {/* Top Connection Controls */}
       <div className="canvas-toolbar">
         <div className="connection-controls">
           <span className="control-label">
             {sourceNodeId
               ? "Select target node to link..."
-              : "Click node to link • Click edge line to delete:"}
+              : "Click node to link • Double-click to inspect • Click edge to delete:"}
           </span>
           <select
             value={relationType}
@@ -338,16 +386,76 @@ export default function GraphCanvas({
         </div>
       </div>
 
+      {/* Floating Viewport Controls */}
+      <div className="viewport-controls">
+        <button type="button" onClick={handleZoomIn} title="Zoom In">+</button>
+        <button type="button" onClick={handleZoomOut} title="Zoom Out">−</button>
+        <button type="button" onClick={handleFitView} className="btn-fit" title="Recenter View">
+          Recenter
+        </button>
+      </div>
+
       {nodes.length === 0 && (
         <div className="empty-canvas-msg">
           No nodes in database. Add entries in the Grid View first!
         </div>
       )}
 
+      {/* 2D Canvas Element */}
       <div
         ref={containerRef}
         className={`cytoscape-canvas ${isCanvasReady ? "ready" : ""}`}
       />
+
+      {/* Node Detail Inspector Modal */}
+      {inspectedNode && (
+        <div className="modal-overlay" onClick={() => setInspectedNode(null)}>
+          <div className="inspector-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <span className="modal-label">{inspectedNode.label}</span>
+                <span className="modal-reading">({inspectedNode.reading || "—"})</span>
+              </div>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setInspectedNode(null)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="modal-field">
+                <span className="field-label">English Meaning:</span>
+                <span className="field-value">{inspectedNode.meaning_en || "—"}</span>
+              </div>
+
+              <div className="modal-field-row">
+                <div className="modal-field">
+                  <span className="field-label">Domain Type:</span>
+                  <span className="type-badge">{inspectedNode.domain_type}</span>
+                </div>
+                <div className="modal-field">
+                  <span className="field-label">Priority:</span>
+                  <span className={`priority-badge ${inspectedNode.priority_status.toLowerCase()}`}>
+                    {inspectedNode.priority_status}
+                  </span>
+                </div>
+              </div>
+
+              <div className="modal-field">
+                <span className="field-label">Personal Context / Notes:</span>
+                <div className="context-box">
+                  {getPersonalContext(inspectedNode.attributes) || (
+                    <span className="empty-context">No context notes added for this entry.</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
