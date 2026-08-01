@@ -5,9 +5,10 @@
   width: 100%;
   position: relative;
   background-color: #09090b;
-  overflow: hidden; /* Prevents scrollbars when sidebar slides in */
+  overflow: hidden;
 }
 
+/* Two-Row Toolbar Box */
 .canvas-toolbar {
   position: absolute;
   top: 12px;
@@ -15,26 +16,50 @@
   z-index: 10;
   background-color: #18181b;
   border: 1px solid #27272a;
-  padding: 8px 14px;
-  border-radius: 6px;
+  padding: 10px 14px;
+  border-radius: 8px;
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 380px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
-.connection-controls {
+.toolbar-row {
+  display: flex;
+  align-items: center;
+}
+
+.toolbar-row.top-row {
+  justify-content: space-between;
+  width: 100%;
+  gap: 16px;
+}
+
+.toolbar-row.bottom-row {
+  border-top: 1px solid #27272a;
+  padding-top: 6px;
+  margin-top: 2px;
+}
+
+.control-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f4f4f5;
+}
+
+.sub-control-label {
+  font-size: 0.75rem;
+  color: #a1a1aa;
+}
+
+.select-wrapper {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.control-label {
-  font-size: 0.8rem;
-  color: #a1a1aa;
-}
-
-.connection-controls select {
+.select-wrapper select {
   background-color: #09090b;
   border: 1px solid #27272a;
   color: #f4f4f5;
@@ -72,7 +97,7 @@
 }
 
 .viewport-controls.sidebar-open {
-  right: 340px; /* Shifts left when sidebar opens */
+  right: 340px;
 }
 
 .zoom-row {
@@ -152,7 +177,7 @@
   height: 100%;
   background-color: #18181b;
   border-left: 1px solid #27272a;
-  z-index: 50; /* Ensures sidebar floats ABOVE canvas elements */
+  z-index: 50;
   display: flex;
   flex-direction: column;
   box-shadow: -6px 0 20px rgba(0, 0, 0, 0.5);

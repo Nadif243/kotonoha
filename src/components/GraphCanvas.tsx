@@ -75,15 +75,11 @@ export default function GraphCanvas({
   };
 
   const openSidebarForNode = (nodeId: string) => {
-    console.log("[Kotonoha Debug] Attempting to open sidebar for node ID:", nodeId);
     const targetNode = nodesRef.current.find((n) => n.id === nodeId);
     if (targetNode) {
-      console.log("[Kotonoha Debug] Target node found:", targetNode.label);
       setInspectedNode(targetNode);
       setEditedContext(getPersonalContext(targetNode.attributes));
       setSourceNode(null); // Clear highlight ring
-    } else {
-      console.error("[Kotonoha Debug] Node ID not found in nodesRef:", nodeId);
     }
   };
 
@@ -141,7 +137,7 @@ export default function GraphCanvas({
     cyRef.current.fit(undefined, 40);
   };
 
-  // 1. INITIALIZE CANVAS ONCE
+  // INITIALIZE CANVAS ONCE
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -274,14 +270,12 @@ export default function GraphCanvas({
 
       // Fallback 1: Shift + Click OR Right Click instantly opens sidebar
       if (originalEvent && (originalEvent.shiftKey || originalEvent.button === 2)) {
-        console.log("[Kotonoha Debug] Mod-click detected on node:", clickedNodeId);
         openSidebarForNode(clickedNodeId);
         return;
       }
 
       // Check double-tap time delta (350ms)
       if (lastTap.nodeId === clickedNodeId && now - lastTap.time < 350) {
-        console.log("[Kotonoha Debug] Fast double-tap registered on node:", clickedNodeId);
         openSidebarForNode(clickedNodeId);
         lastTapInfoRef.current = { time: 0, nodeId: null };
         return;
@@ -303,7 +297,6 @@ export default function GraphCanvas({
 
     // Native Cytoscape Double Tap Event (Secondary Backup)
     cy.on("dbltap", "node", (evt) => {
-      console.log("[Kotonoha Debug] Cytoscape dbltap event fired on:", evt.target.id());
       openSidebarForNode(evt.target.id());
     });
 
@@ -350,7 +343,7 @@ export default function GraphCanvas({
     };
   }, []);
 
-  // 2. DYNAMIC DIFF UPDATER
+  // DYNAMIC DIFF UPDATER
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy) return;
@@ -453,31 +446,36 @@ export default function GraphCanvas({
     <div className="graph-container">
       {/* Canvas Toolbar */}
       <div className="canvas-toolbar">
-        <div className="connection-controls">
+        <div className="toolbar-row top-row">
           <span className="control-label">
-            {sourceNodeId
-              ? "Select target node to link..."
-              : "Click to link • Double-click / Right-click / Shift-click to inspect:"}
+            {sourceNodeId ? "Select target node to link..." : "Click to link"}
           </span>
-          <select
-            value={relationType}
-            onChange={(e) => handleRelationChange(e.target.value)}
-          >
-            <option value="SIMILAR_KANJI">SIMILAR_KANJI</option>
-            <option value="TRANSITIVE_PAIR">TRANSITIVE_PAIR</option>
-            <option value="SYNONYM">SYNONYM</option>
-            <option value="OPPOSITE">OPPOSITE</option>
-            <option value="USES_GRAMMAR">USES_GRAMMAR</option>
-          </select>
-          {sourceNodeId && (
-            <button
-              type="button"
-              className="btn-cancel"
-              onClick={() => setSourceNode(null)}
+          <div className="select-wrapper">
+            <select
+              value={relationType}
+              onChange={(e) => handleRelationChange(e.target.value)}
             >
-              Cancel Link
-            </button>
-          )}
+              <option value="SIMILAR_KANJI">SIMILAR_KANJI</option>
+              <option value="TRANSITIVE_PAIR">TRANSITIVE_PAIR</option>
+              <option value="SYNONYM">SYNONYM</option>
+              <option value="OPPOSITE">OPPOSITE</option>
+              <option value="USES_GRAMMAR">USES_GRAMMAR</option>
+            </select>
+            {sourceNodeId && (
+              <button
+                type="button"
+                className="btn-cancel"
+                onClick={() => setSourceNode(null)}
+              >
+                Cancel Link
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="toolbar-row bottom-row">
+          <span className="sub-control-label">
+            Double-click / Right-click / Shift-click to inspect
+          </span>
         </div>
       </div>
 
@@ -545,7 +543,7 @@ export default function GraphCanvas({
               <span className="field-label">Personal Context / Memory Note</span>
               <textarea
                 className="context-textarea"
-                placeholder="Write memory anchors, VTuber stream contexts, or usage notes..."
+                placeholder="Write memory anchors, media contexts, or usage notes..."
                 value={editedContext}
                 onChange={(e) => setEditedContext(e.target.value)}
               />
