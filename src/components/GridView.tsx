@@ -8,8 +8,13 @@ interface GridViewProps {
   onNodesChange: (nodes: NodeEntity[]) => void;
 }
 
+type TabType = "LEXICAL" | "GRAMMAR" | "DOMAIN_HUB" | "ALL";
+
 export default function GridView({ nodes, onNodesChange }: GridViewProps) {
-  // Form input states for fast entry
+  // Navigation Tab State (Default: LEXICAL)
+  const [activeTab, setActiveTab] = useState<TabType>("LEXICAL");
+
+  // Form input states
   const [label, setLabel] = useState("");
   const [reading, setReading] = useState("");
   const [meaningEn, setMeaningEn] = useState("");
@@ -17,6 +22,14 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
   const [priorityStatus, setPriorityStatus] = useState<PriorityStatus>("REVIEW");
   const [personalContext, setPersonalContext] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Sync Form Domain Type when Tab Changes
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    if (tab !== "ALL") {
+      setDomainType(tab);
+    }
+  };
 
   const handleAddNode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,14 +39,24 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
     const trimmedReading = reading.trim();
     const trimmedMeaning = meaningEn.trim();
 
-    // 1. Require all 3 fields
-    if (!trimmedLabel || !trimmedReading || !trimmedMeaning) return;
+    if (!trimmedLabel) return;
+
+    // Validation rules per domain type
+    if (domainType === "LEXICAL" && (!trimmedReading || !trimmedMeaning)) {
+      setErrorMsg("Lexical entries require both Reading and English Meaning!");
+      return;
+    }
 
     try {
-      // 2. Check for exact 3-field duplicate
-      const isDuplicate = await checkDuplicateNode(trimmedLabel, trimmedReading, trimmedMeaning);
+      // Check for duplicates
+      const isDuplicate = await checkDuplicateNode(
+        trimmedLabel,
+        domainType === "LEXICAL" ? trimmedReading : "",
+        domainType === "LEXICAL" ? trimmedMeaning : ""
+      );
+
       if (isDuplicate) {
-        setErrorMsg(`"${trimmedLabel} (${trimmedReading})" with meaning "${trimmedMeaning}" already exists!`);
+        setErrorMsg(`"${trimmedLabel}" already exists in your database!`);
         return;
       }
 
@@ -46,8 +69,8 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
       await insertNode({
         id,
         label: trimmedLabel,
-        reading: trimmedReading,
-        meaning_en: trimmedMeaning,
+        reading: domainType === "DOMAIN_HUB" ? undefined : trimmedReading || undefined,
+        meaning_en: domainType === "DOMAIN_HUB" ? undefined : trimmedMeaning || undefined,
         domain_type: domainType,
         priority_status: priorityStatus,
         attributes: attributesJSON,
@@ -57,11 +80,13 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
       const updated = await getAllNodes();
       onNodesChange(updated);
 
-      // Reset form
+      // Reset form fields
       setLabel("");
       setReading("");
       setMeaningEn("");
       setPersonalContext("");
+      setDomainType("LEXICAL");
+      setPriorityStatus("REVIEW");
       setErrorMsg(null);
     } catch (err) {
       console.error("Failed to insert node:", err);
@@ -96,100 +121,182 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
     }
   };
 
+  // Filter nodes based on active tab
+  const filteredNodes = nodes.filter((node) => {
+    if (activeTab === "ALL") return true;
+    return node.domain_type === activeTab;
+  });
+
   return (
     <div className="grid-workbench">
-      {/* Entry Toolbar */}
+      {/* Category Navigation Tabs */}
+      <div className="view-tabs">
+        <button
+          type="button"
+          className={`tab-btn ${activeTab === "LEXICAL" ? "active" : ""}`}
+          onClick={() => handleTabChange("LEXICAL")}
+        >
+          Lexical (Words)
+        </button>
+        <button
+          type="button"
+          className={`tab-btn ${activeTab === "GRAMMAR" ? "active" : ""}`}
+          onClick={() => handleTabChange("GRAMMAR")}
+        >
+          Grammar Rules
+        </button>
+        <button
+          type="button"
+          className={`tab-btn ${activeTab === "DOMAIN_HUB" ? "active" : ""}`}
+          onClick={() => handleTabChange("DOMAIN_HUB")}
+        >
+          Domain Hubs
+        </button>
+        <button
+          type="button"
+          className={`tab-btn tab-all ${activeTab === "ALL" ? "active" : ""}`}
+          onClick={() => handleTabChange("ALL")}
+        >
+          All Entries
+        </button>
+      </div>
+
+      {/* Adaptive Entry Toolbar */}
       <form className="entry-form" onSubmit={handleAddNode}>
-        <input
-          type="text"
-          placeholder="Word / Kanji (e.g., 開ける)"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          required
-        />
-        <input
-          type="text"
-          placeholder="Reading (e.g., あける)"
-          value={reading}
-          onChange={(e) => setReading(e.target.value)}
-          required
-        />
-        <input
-          type="text"
-          placeholder="English Meaning (e.g., To open)"
-          value={meaningEn}
-          onChange={(e) => setMeaningEn(e.target.value)}
-          required
-        />
         <select
           value={domainType}
           onChange={(e) => setDomainType(e.target.value as DomainType)}
+          className="select-type"
         >
-          <option value="LEXICAL">Lexical (Word/Kanji)</option>
-          <option value="GRAMMAR">Grammar Pattern</option>
+          <option value="LEXICAL">Lexical</option>
+          <option value="GRAMMAR">Grammar</option>
           <option value="DOMAIN_HUB">Domain Hub</option>
         </select>
-        <select
-          value={priorityStatus}
-          onChange={(e) => setPriorityStatus(e.target.value as PriorityStatus)}
-        >
-          <option value="HARD">HARD (Friction)</option>
-          <option value="REVIEW">REVIEW (Normal)</option>
-          <option value="SETTLED">SETTLED (Mastered)</option>
-        </select>
+
+        {/* Input Field 1: Label (Always Visible) */}
         <input
           type="text"
-          placeholder="Personal Context / Memory Note"
+          placeholder={
+            domainType === "DOMAIN_HUB"
+              ? "Hub Name (e.g. Yuura Stream #12, Bloom Into You)"
+              : domainType === "GRAMMAR"
+              ? "Pattern (e.g. 〜わけにはいかない)"
+              : "Word / Kanji (e.g. 開ける)"
+          }
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          required
+          className="input-main"
+        />
+
+        {/* Input Field 2: Reading (Hidden for Domain Hubs) */}
+        {domainType !== "DOMAIN_HUB" && (
+          <input
+            type="text"
+            placeholder={
+              domainType === "GRAMMAR"
+                ? "Reading / Kana (Optional)"
+                : "Reading (e.g. あける)"
+            }
+            value={reading}
+            onChange={(e) => setReading(e.target.value)}
+            required={domainType === "LEXICAL"}
+          />
+        )}
+
+        {/* Input Field 3: Meaning (Hidden for Domain Hubs) */}
+        {domainType !== "DOMAIN_HUB" && (
+          <input
+            type="text"
+            placeholder={
+              domainType === "GRAMMAR"
+                ? "Usage / Rule Explanation"
+                : "English Meaning (e.g. To open)"
+            }
+            value={meaningEn}
+            onChange={(e) => setMeaningEn(e.target.value)}
+            required={domainType === "LEXICAL"}
+          />
+        )}
+
+        {/* Priority Selector (Hidden for Domain Hubs) */}
+        {domainType !== "DOMAIN_HUB" && (
+          <select
+            value={priorityStatus}
+            onChange={(e) => setPriorityStatus(e.target.value as PriorityStatus)}
+          >
+            <option value="HARD">HARD</option>
+            <option value="REVIEW">REVIEW</option>
+            <option value="SETTLED">SETTLED</option>
+          </select>
+        )}
+
+        {/* Personal Context Field */}
+        <input
+          type="text"
+          placeholder="Memory Context / Note"
           value={personalContext}
           onChange={(e) => setPersonalContext(e.target.value)}
+          className="input-context"
         />
+
         <button type="submit">+ Add Entry</button>
       </form>
 
       {/* Duplicate Warning Banner */}
       {errorMsg && <div className="error-banner">{errorMsg}</div>}
 
-      {/* Data Table */}
+      {/* Dynamic Data Table */}
       <div className="table-container">
         <table className="data-table">
           <thead>
             <tr>
               <th>#</th>
-              <th>Word / Entity</th>
-              <th>Reading</th>
-              <th>English Meaning</th>
-              <th>Type</th>
-              <th>Priority (Click to Cycle)</th>
+              <th>{activeTab === "DOMAIN_HUB" ? "Hub / Context Title" : "Entity / Word"}</th>
+              {activeTab !== "DOMAIN_HUB" && <th>Reading</th>}
+              {activeTab !== "DOMAIN_HUB" && <th>Meaning / Description</th>}
+              {activeTab === "ALL" && <th>Type</th>}
+              {activeTab !== "DOMAIN_HUB" && <th>Priority</th>}
               <th className="col-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {nodes.length === 0 ? (
+            {filteredNodes.length === 0 ? (
               <tr>
                 <td colSpan={7} className="empty-row">
-                  No items logged yet. Use the bar above to manually create your first node.
+                  No {activeTab.toLowerCase()} entries found.
                 </td>
               </tr>
             ) : (
-              nodes.map((node, index) => (
+              filteredNodes.map((node, index) => (
                 <tr key={node.id} className={node.priority_status.toLowerCase()}>
-                  <td className="col-seq">{nodes.length - index}</td>
+                  <td className="col-seq">{filteredNodes.length - index}</td>
                   <td className="col-label">{node.label}</td>
-                  <td className="col-reading">{node.reading || "—"}</td>
-                  <td className="col-meaning">{node.meaning_en || "—"}</td>
-                  <td>
-                    <span className="type-badge">{node.domain_type}</span>
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      className={`priority-badge clickable ${node.priority_status.toLowerCase()}`}
-                      onClick={() => handleCyclePriority(node)}
-                      title="Click to toggle priority status"
-                    >
-                      {node.priority_status}
-                    </button>
-                  </td>
+                  {activeTab !== "DOMAIN_HUB" && (
+                    <td className="col-reading">{node.reading || "—"}</td>
+                  )}
+                  {activeTab !== "DOMAIN_HUB" && (
+                    <td className="col-meaning">{node.meaning_en || "—"}</td>
+                  )}
+                  {activeTab === "ALL" && (
+                    <td>
+                      <span className={`type-badge ${node.domain_type.toLowerCase()}`}>
+                        {node.domain_type}
+                      </span>
+                    </td>
+                  )}
+                  {activeTab !== "DOMAIN_HUB" && (
+                    <td>
+                      <button
+                        type="button"
+                        className={`priority-badge clickable ${node.priority_status.toLowerCase()}`}
+                        onClick={() => handleCyclePriority(node)}
+                        title="Click to toggle priority status"
+                      >
+                        {node.priority_status}
+                      </button>
+                    </td>
+                  )}
                   <td className="col-actions">
                     <button
                       type="button"

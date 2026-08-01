@@ -188,3 +188,93 @@
   display: flex;
   align-items: center;
 }
+
+.form-row-2 {
+  display: flex;
+  gap: 12px;
+}
+
+.form-row-2 .form-group {
+  flex: 1;
+}
+
+/* Domain Type Badges for Grid Table */
+.type-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.type-badge.lexical {
+  background-color: #18181b;
+  border: 1px solid #3f3f46;
+  color: #d4d4d8;
+}
+
+.type-badge.grammar {
+  background-color: #172554;
+  border: 1px solid #1d4ed8;
+  color: #93c5fd;
+}
+
+.type-badge.domain_hub {
+  background-color: #312e81;
+  border: 1px solid #4338ca;
+  color: #c7d2fe;
+}
+/* Navigation Category Tabs */
+.view-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #27272a;
+  padding-bottom: 8px;
+}
+
+.tab-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #a1a1aa;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tab-btn:hover {
+  color: #f4f4f5;
+  background-color: #18181b;
+}
+
+.tab-btn.active {
+  background-color: #27272a;
+  color: #ffffff;
+  border-color: #3f3f46;
+  font-weight: 600;
+}
+
+.tab-btn.tab-all {
+  margin-left: auto; /* Push "All" to the right edge */
+  border-left: 1px solid #27272a;
+}
+
+/* Form adaptive flex tweaks */
+.entry-form select.select-type {
+  font-weight: 600;
+  border-color: #3f3f46;
+  background-color: #18181b;
+}
+
+.entry-form input.input-main {
+  flex: 1.5;
+}
+
+.entry-form input.input-context {
+  flex: 1;
+}
