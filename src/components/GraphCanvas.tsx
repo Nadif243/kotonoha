@@ -258,6 +258,14 @@ export default function GraphCanvas({
             color: "#ef4444",
           },
         },
+        {
+          selector: 'edge[label = "TRANSITIVE_PAIR"], edge[label = "USES_GRAMMAR"], edge[label = "BELONGS_TO_HUB"]',
+          style: {
+            "source-arrow-shape": "none",
+            "target-arrow-shape": "vee",
+            "target-arrow-color": "#6366f1",
+        },
+        },
       ],
     });
 
@@ -460,6 +468,7 @@ export default function GraphCanvas({
               <option value="SYNONYM">SYNONYM</option>
               <option value="OPPOSITE">OPPOSITE</option>
               <option value="USES_GRAMMAR">USES_GRAMMAR</option>
+              <option value="BELONGS_TO_HUB">BELONGS_TO_HUB</option>
             </select>
             {sourceNodeId && (
               <button

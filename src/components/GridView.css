@@ -278,3 +278,64 @@
 .entry-form input.input-context {
   flex: 1;
 }
+
+.select-hub {
+  background-color: #09090b;
+  border: 1px solid #27272a;
+  color: #a1a1aa;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  outline: none;
+}
+
+.action-btn-group, .edit-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-edit {
+  background: transparent;
+  border: 1px solid #3f3f46;
+  color: #a1a1aa;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.btn-edit:hover {
+  color: #ffffff;
+  border-color: #6366f1;
+}
+
+.btn-save {
+  background-color: #10b981;
+  border: none;
+  color: #ffffff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.btn-cancel-edit {
+  background-color: #27272a;
+  border: none;
+  color: #a1a1aa;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.inline-edit-input {
+  background-color: #09090b;
+  border: 1px solid #6366f1;
+  color: #ffffff;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  width: 100%;
+}

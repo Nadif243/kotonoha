@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { NodeEntity, PriorityStatus, DomainType } from "../types/database";
-import { insertNode, deleteNode, updateNodePriority, checkDuplicateNode, getAllNodes } from "../core/db";
+import { insertNode, deleteNode, updateNodePriority, checkDuplicateNode, getAllNodes, insertEdge, updateNodeDetails, getAllEdges } from "../core/db";
 import "./GridView.css";
 
 interface GridViewProps {
   nodes: NodeEntity[];
   onNodesChange: (nodes: NodeEntity[]) => void;
+  onEdgesChange?: (edges: any[]) => void;
 }
 
-type TabType = "LEXICAL" | "GRAMMAR" | "DOMAIN_HUB" | "ALL";
+type TabType = "LEXICAL" | "GRAMMAR" | "DOMAIN_HUB" | "DICT_INDEX";
 
-export default function GridView({ nodes, onNodesChange }: GridViewProps) {
+export default function GridView({ nodes, onNodesChange, onEdgesChange }: GridViewProps) {
   // Navigation Tab State (Default: LEXICAL)
   const [activeTab, setActiveTab] = useState<TabType>("LEXICAL");
 
@@ -20,13 +21,22 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
   const [meaningEn, setMeaningEn] = useState("");
   const [domainType, setDomainType] = useState<DomainType>("LEXICAL");
   const [priorityStatus, setPriorityStatus] = useState<PriorityStatus>("REVIEW");
+  const [selectedHubId, setSelectedHubId] = useState<string>("NONE");
   const [personalContext, setPersonalContext] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Edit State
+  const [editingNode, setEditingNode] = useState<NodeEntity | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editReading, setEditReading] = useState("");
+  const [editMeaning, setEditMeaning] = useState("");
+
+  const domainHubs = nodes.filter((n) => n.domain_type === "DOMAIN_HUB");
 
   // Sync Form Domain Type when Tab Changes
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
-    if (tab !== "ALL") {
+    if (tab !== "DICT_INDEX") {
       setDomainType(tab);
     }
   };
@@ -76,6 +86,21 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
         attributes: attributesJSON,
       });
 
+      // Connect to Hub if selected
+      if (domainType !== "DOMAIN_HUB" && selectedHubId !== "NONE") {
+        await insertEdge({
+          source_node_id: id,
+          target_node_id: selectedHubId,
+          relation_type: "BELONGS_TO_HUB",
+          is_directional: true,
+        });
+
+        if (onEdgesChange) {
+          const updatedEdges = await getAllEdges();
+          onEdgesChange(updatedEdges || []);
+        }
+      }
+
       // Refresh list
       const updated = await getAllNodes();
       onNodesChange(updated);
@@ -85,8 +110,7 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
       setReading("");
       setMeaningEn("");
       setPersonalContext("");
-      setDomainType("LEXICAL");
-      setPriorityStatus("REVIEW");
+      setSelectedHubId("NONE");
       setErrorMsg(null);
     } catch (err) {
       console.error("Failed to insert node:", err);
@@ -98,6 +122,10 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
       await deleteNode(id);
       const updated = await getAllNodes();
       onNodesChange(updated);
+      if (onEdgesChange) {
+        const updatedEdges = await getAllEdges();
+        onEdgesChange(updatedEdges || []);
+      }
     } catch (err) {
       console.error("Failed to delete node:", err);
     }
@@ -121,9 +149,38 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
     }
   };
 
+  const startEditing = (node: NodeEntity) => {
+    setEditingNode(node);
+    setEditLabel(node.label || "");
+    setEditReading(node.reading || "");
+    setEditMeaning(node.meaning_en || "");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingNode) return;
+
+    try {
+      await updateNodeDetails(
+        editingNode.id,
+        editLabel.trim(),
+        editReading.trim(),
+        editMeaning.trim()
+      );
+
+      const updated = await getAllNodes();
+      onNodesChange(updated);
+      setEditingNode(null);
+    } catch (err) {
+      console.error("Failed to save edited entry:", err);
+    }
+  };
+
   // Filter nodes based on active tab
   const filteredNodes = nodes.filter((node) => {
-    if (activeTab === "ALL") return true;
+    if (activeTab === "DICT_INDEX") {
+      // Exclude DOMAIN_HUB entries from the dictionary index
+      return node.domain_type !== "DOMAIN_HUB";
+    }
     return node.domain_type === activeTab;
   });
 
@@ -154,10 +211,10 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
         </button>
         <button
           type="button"
-          className={`tab-btn tab-all ${activeTab === "ALL" ? "active" : ""}`}
-          onClick={() => handleTabChange("ALL")}
+          className={`tab-btn tab-all ${activeTab === "DICT_INDEX" ? "active" : ""}`}
+          onClick={() => handleTabChange("DICT_INDEX")}
         >
-          All Entries
+          Dictionary Index
         </button>
       </div>
 
@@ -173,15 +230,15 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
           <option value="DOMAIN_HUB">Domain Hub</option>
         </select>
 
-        {/* Input Field 1: Label (Always Visible) */}
+        {/* Input Field 1: Label */}
         <input
           type="text"
           placeholder={
             domainType === "DOMAIN_HUB"
-              ? "Hub Name (e.g. Yuura Stream #12, Bloom Into You)"
+              ? "Hub Title (e.g., Chapter 01, Media Stream, Novel Vol. 1)"
               : domainType === "GRAMMAR"
-              ? "Pattern (e.g. 〜わけにはいかない)"
-              : "Word / Kanji (e.g. 開ける)"
+              ? "Pattern (e.g., 〜わけにはいかない)"
+              : "Word / Kanji (e.g., 開ける)"
           }
           value={label}
           onChange={(e) => setLabel(e.target.value)}
@@ -189,14 +246,14 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
           className="input-main"
         />
 
-        {/* Input Field 2: Reading (Hidden for Domain Hubs) */}
+        {/* Input Field 2: Reading */}
         {domainType !== "DOMAIN_HUB" && (
           <input
             type="text"
             placeholder={
               domainType === "GRAMMAR"
                 ? "Reading / Kana (Optional)"
-                : "Reading (e.g. あける)"
+                : "Reading (e.g., あける)"
             }
             value={reading}
             onChange={(e) => setReading(e.target.value)}
@@ -204,14 +261,14 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
           />
         )}
 
-        {/* Input Field 3: Meaning (Hidden for Domain Hubs) */}
+        {/* Input Field 3: Meaning */}
         {domainType !== "DOMAIN_HUB" && (
           <input
             type="text"
             placeholder={
               domainType === "GRAMMAR"
-                ? "Usage / Rule Explanation"
-                : "English Meaning (e.g. To open)"
+                ? "Usage / Explanation"
+                : "English Meaning (e.g., To open)"
             }
             value={meaningEn}
             onChange={(e) => setMeaningEn(e.target.value)}
@@ -219,7 +276,23 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
           />
         )}
 
-        {/* Priority Selector (Hidden for Domain Hubs) */}
+        {/* Attach to Hub Dropdown */}
+        {domainType !== "DOMAIN_HUB" && (
+          <select
+            value={selectedHubId}
+            onChange={(e) => setSelectedHubId(e.target.value)}
+            className="select-hub"
+          >
+            <option value="NONE">-- Attach to Hub (None) --</option>
+            {domainHubs.map((hub) => (
+              <option key={hub.id} value={hub.id}>
+                Hub: {hub.label}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {/* Priority Selector */}
         {domainType !== "DOMAIN_HUB" && (
           <select
             value={priorityStatus}
@@ -234,7 +307,7 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
         {/* Personal Context Field */}
         <input
           type="text"
-          placeholder="Memory Context / Note"
+          placeholder="Memory Note"
           value={personalContext}
           onChange={(e) => setPersonalContext(e.target.value)}
           className="input-context"
@@ -252,10 +325,10 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
           <thead>
             <tr>
               <th>#</th>
-              <th>{activeTab === "DOMAIN_HUB" ? "Hub / Context Title" : "Entity / Word"}</th>
+              <th>{activeTab === "DOMAIN_HUB" ? "Hub Title" : "Entity / Word"}</th>
               {activeTab !== "DOMAIN_HUB" && <th>Reading</th>}
               {activeTab !== "DOMAIN_HUB" && <th>Meaning / Description</th>}
-              {activeTab === "ALL" && <th>Type</th>}
+              {activeTab === "DICT_INDEX" && <th>Type</th>}
               {activeTab !== "DOMAIN_HUB" && <th>Priority</th>}
               <th className="col-actions">Actions</th>
             </tr>
@@ -264,21 +337,54 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
             {filteredNodes.length === 0 ? (
               <tr>
                 <td colSpan={7} className="empty-row">
-                  No {activeTab.toLowerCase()} entries found.
+                  No {activeTab.toLowerCase().replace("_", " ")} entries found.
                 </td>
               </tr>
             ) : (
               filteredNodes.map((node, index) => (
                 <tr key={node.id} className={node.priority_status.toLowerCase()}>
                   <td className="col-seq">{filteredNodes.length - index}</td>
-                  <td className="col-label">{node.label}</td>
+                  <td className="col-label">
+                    {editingNode?.id === node.id ? (
+                      <input
+                        type="text"
+                        value={editLabel}
+                        onChange={(e) => setEditLabel(e.target.value)}
+                        className="inline-edit-input"
+                      />
+                    ) : (
+                      node.label
+                    )}
+                  </td>
                   {activeTab !== "DOMAIN_HUB" && (
-                    <td className="col-reading">{node.reading || "—"}</td>
+                    <td className="col-reading">
+                      {editingNode?.id === node.id ? (
+                        <input
+                          type="text"
+                          value={editReading}
+                          onChange={(e) => setEditReading(e.target.value)}
+                          className="inline-edit-input"
+                        />
+                      ) : (
+                        node.reading || "—"
+                      )}
+                    </td>
                   )}
                   {activeTab !== "DOMAIN_HUB" && (
-                    <td className="col-meaning">{node.meaning_en || "—"}</td>
+                    <td className="col-meaning">
+                      {editingNode?.id === node.id ? (
+                        <input
+                          type="text"
+                          value={editMeaning}
+                          onChange={(e) => setEditMeaning(e.target.value)}
+                          className="inline-edit-input"
+                        />
+                      ) : (
+                        node.meaning_en || "—"
+                      )}
+                    </td>
                   )}
-                  {activeTab === "ALL" && (
+                  {activeTab === "DICT_INDEX" && (
                     <td>
                       <span className={`type-badge ${node.domain_type.toLowerCase()}`}>
                         {node.domain_type}
@@ -298,14 +404,35 @@ export default function GridView({ nodes, onNodesChange }: GridViewProps) {
                     </td>
                   )}
                   <td className="col-actions">
-                    <button
-                      type="button"
-                      className="btn-delete"
-                      onClick={() => handleDelete(node.id)}
-                      title="Delete entry"
-                    >
-                      ×
-                    </button>
+                    {editingNode?.id === node.id ? (
+                      <div className="edit-btn-group">
+                        <button type="button" className="btn-save" onClick={handleSaveEdit}>
+                          Save
+                        </button>
+                        <button type="button" className="btn-cancel-edit" onClick={() => setEditingNode(null)}>
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="action-btn-group">
+                        <button
+                          type="button"
+                          className="btn-edit"
+                          onClick={() => startEditing(node)}
+                          title="Edit entry details"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-delete"
+                          onClick={() => handleDelete(node.id)}
+                          title="Delete entry"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))

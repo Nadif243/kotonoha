@@ -1,5 +1,5 @@
 import Database from "@tauri-apps/plugin-sql";
-import { NodeEntity, EdgeEntity, PriorityStatus } from "../types/database";
+import { NodeEntity, EdgeEntity, DomainType, PriorityStatus } from "../types/database";
 
 let dbInstance: Database | null = null;
 
@@ -218,4 +218,41 @@ export async function updateNodeContext(id: string, personalContext: string): Pr
     attributesJSON,
     id,
   ]);
+}
+
+export async function insertNodeWithHub(
+  node: {
+    id: string;
+    label: string;
+    reading?: string;
+    meaning_en?: string;
+    domain_type: DomainType;
+    priority_status: PriorityStatus;
+    attributes?: string;
+  },
+  targetHubId?: string
+) {
+  await insertNode(node);
+
+  if (targetHubId && targetHubId !== "NONE") {
+    await insertEdge({
+      source_node_id: node.id,
+      target_node_id: targetHubId,
+      relation_type: "BELONGS_TO_HUB",
+      is_directional: true,
+    });
+  }
+}
+
+export async function updateNodeDetails(
+  id: string,
+  label: string,
+  reading?: string,
+  meaning_en?: string
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `UPDATE nodes SET label = $1, reading = $2, meaning_en = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4`,
+    [label, reading || null, meaning_en || null, id]
+  );
 }
