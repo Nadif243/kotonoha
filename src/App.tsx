@@ -18,8 +18,8 @@ export default function App() {
         setDbReady(true);
         const initialNodes = await getAllNodes();
         const initialEdges = await getAllEdges();
-        setNodes(initialNodes);
-        setEdges(initialEdges);
+        setNodes(initialNodes || []);
+        setEdges(initialEdges || []);
       } catch (err) {
         console.error("Failed to initialize database:", err);
       }
@@ -59,7 +59,12 @@ export default function App() {
           {activeTab === "grid" ? (
             <GridView nodes={nodes} onNodesChange={setNodes} />
           ) : (
-            <GraphCanvas nodes={nodes} edges={edges} onEdgesChange={setEdges} />
+            <GraphCanvas
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={setNodes}
+              onEdgesChange={setEdges}
+            />
           )}
         </div>
       </main>

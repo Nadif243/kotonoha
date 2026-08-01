@@ -204,3 +204,18 @@ export async function deleteEdge(id: string): Promise<void> {
   const db = await getDb();
   await db.execute("DELETE FROM edges WHERE id = $1;", [id]);
 }
+
+/**
+ * Updates the attributes JSON for a node (e.g. personal context notes).
+ */
+export async function updateNodeContext(id: string, personalContext: string): Promise<void> {
+  const db = await getDb();
+  const attributesJSON = JSON.stringify({
+    personal_context: personalContext || "",
+    example_sentences: [],
+  });
+  await db.execute("UPDATE nodes SET attributes = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2;", [
+    attributesJSON,
+    id,
+  ]);
+}

@@ -1,41 +1,61 @@
 import { useEffect, useRef, useState } from "react";
 import cytoscape, { Core } from "cytoscape";
 import { NodeEntity, EdgeEntity } from "../types/database";
-import { insertEdge, deleteEdge, checkEdgeConflict, getAllEdges } from "../core/db";
+import { insertEdge, deleteEdge, checkEdgeConflict, getAllEdges, updateNodeContext, getAllNodes } from "../core/db";
 import "./GraphCanvas.css";
 
 interface GraphCanvasProps {
   nodes: NodeEntity[];
   edges: EdgeEntity[];
+  onNodesChange: (nodes: NodeEntity[]) => void;
   onEdgesChange: (edges: EdgeEntity[]) => void;
 }
 
 export default function GraphCanvas({
   nodes = [],
   edges = [],
+  onNodesChange,
   onEdgesChange,
 }: GraphCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
 
-  // Link creation state & ref tracking
-  const [sourceNodeId, setSourceNodeIdState] = useState<string | null>(null);
+  // Synchronous State Tracking Refs
+  const nodesRef = useRef<NodeEntity[]>(nodes);
+  const edgesRef = useRef<EdgeEntity[]>(edges);
   const sourceNodeIdRef = useRef<string | null>(null);
-
-  const [relationType, setRelationTypeState] = useState<string>("SIMILAR_KANJI");
   const relationTypeRef = useRef<string>("SIMILAR_KANJI");
 
+  // React State for UI
+  const [sourceNodeId, setSourceNodeIdState] = useState<string | null>(null);
+  const [relationType, setRelationTypeState] = useState<string>("SIMILAR_KANJI");
   const [isCanvasReady, setIsCanvasReady] = useState<boolean>(false);
 
-  // Node Inspector Modal State
+  // Right Sidebar State
   const [inspectedNode, setInspectedNode] = useState<NodeEntity | null>(null);
+  const [editedContext, setEditedContext] = useState<string>("");
+  const [isSavingNote, setIsSavingNote] = useState<boolean>(false);
+
+  // Double-tap timestamp tracker
+  const lastTapInfoRef = useRef<{ time: number; nodeId: string | null }>({
+    time: 0,
+    nodeId: null,
+  });
+
+  useEffect(() => {
+    nodesRef.current = nodes;
+    edgesRef.current = edges;
+  }, [nodes, edges]);
 
   const setSourceNode = (id: string | null) => {
     sourceNodeIdRef.current = id;
     setSourceNodeIdState(id);
 
-    if (cyRef.current && !id) {
-      cyRef.current.nodes().unselect();
+    if (cyRef.current) {
+      cyRef.current.nodes().removeClass("highlighted");
+      if (id) {
+        cyRef.current.$id(id).addClass("highlighted");
+      }
     }
   };
 
@@ -44,7 +64,6 @@ export default function GraphCanvas({
     setRelationTypeState(newType);
   };
 
-  // Helper to safely extract personal_context from node attributes JSON
   const getPersonalContext = (attributesStr?: string): string => {
     if (!attributesStr) return "";
     try {
@@ -55,11 +74,50 @@ export default function GraphCanvas({
     }
   };
 
-  // Viewport Control Handlers
+  const openSidebarForNode = (nodeId: string) => {
+    console.log("[Kotonoha Debug] Attempting to open sidebar for node ID:", nodeId);
+    const targetNode = nodesRef.current.find((n) => n.id === nodeId);
+    if (targetNode) {
+      console.log("[Kotonoha Debug] Target node found:", targetNode.label);
+      setInspectedNode(targetNode);
+      setEditedContext(getPersonalContext(targetNode.attributes));
+      setSourceNode(null); // Clear highlight ring
+    } else {
+      console.error("[Kotonoha Debug] Node ID not found in nodesRef:", nodeId);
+    }
+  };
+
+  const handleSaveNotes = async () => {
+    if (!inspectedNode) return;
+    setIsSavingNote(true);
+
+    try {
+      await updateNodeContext(inspectedNode.id, editedContext);
+      const updatedNodes = await getAllNodes();
+      onNodesChange(updatedNodes);
+
+      setInspectedNode((prev) =>
+        prev
+          ? {
+              ...prev,
+              attributes: JSON.stringify({
+                personal_context: editedContext,
+                example_sentences: [],
+              }),
+            }
+          : null
+      );
+    } catch (err) {
+      console.error("Failed to update context note:", err);
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
+
   const handleZoomIn = () => {
     if (!cyRef.current) return;
     cyRef.current.zoom({
-      level: cyRef.current.zoom() * 1.25,
+      level: cyRef.current.zoom() * 1.2,
       renderedPosition: {
         x: cyRef.current.width() / 2,
         y: cyRef.current.height() / 2,
@@ -83,51 +141,14 @@ export default function GraphCanvas({
     cyRef.current.fit(undefined, 40);
   };
 
+  // 1. INITIALIZE CANVAS ONCE
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const safeNodes = Array.isArray(nodes) ? nodes : [];
-    const validNodeIds = new Set(safeNodes.map((n) => n.id));
-
-    // CRITICAL: Filter out orphan edges whose target/source nodes no longer exist
-    const safeEdges = (Array.isArray(edges) ? edges : []).filter(
-      (e) => validNodeIds.has(e.source_node_id) && validNodeIds.has(e.target_node_id)
-    );
-
-    if (safeNodes.length === 0) {
-      if (cyRef.current) {
-        cyRef.current.destroy();
-        cyRef.current = null;
-      }
-      setIsCanvasReady(true);
-      return;
-    }
-
-    const nodeElements = safeNodes.map((node) => ({
-      data: {
-        id: node.id,
-        label: `${node.label}\n${node.reading || ""}`,
-        priority: node.priority_status || "REVIEW",
-        domain: node.domain_type || "LEXICAL",
-      },
-    }));
-
-    const edgeElements = safeEdges.map((edge) => ({
-      data: {
-        id: edge.id,
-        source: edge.source_node_id,
-        target: edge.target_node_id,
-        label: edge.relation_type || "",
-      },
-    }));
-
-    if (cyRef.current) {
-      cyRef.current.destroy();
-    }
-
     const cy = cytoscape({
       container: containerRef.current,
-      elements: [...nodeElements, ...edgeElements],
+      autounselectify: true,
+      elements: [],
       style: [
         {
           selector: "node",
@@ -190,14 +211,13 @@ export default function GraphCanvas({
           },
         },
         {
-          selector: "node:selected",
+          selector: "node.highlighted",
           style: {
             "border-width": 3,
             "border-color": "#ffffff",
             "background-color": "#27272a",
           },
         },
-        // Base Edge Style
         {
           selector: "edge",
           style: {
@@ -215,7 +235,6 @@ export default function GraphCanvas({
             "text-border-radius": "2px",
           },
         },
-        // Symmetric Relations (Double Arrow)
         {
           selector: 'edge[label = "SYNONYM"], edge[label = "OPPOSITE"], edge[label = "SIMILAR_KANJI"]',
           style: {
@@ -225,7 +244,6 @@ export default function GraphCanvas({
             "target-arrow-color": "#52525b",
           },
         },
-        // Directional Relations (Single Arrow)
         {
           selector: 'edge[label = "TRANSITIVE_PAIR"], edge[label = "USES_GRAMMAR"]',
           style: {
@@ -245,50 +263,56 @@ export default function GraphCanvas({
           },
         },
       ],
-      layout: {
-        name: "cose",
-        animate: false,
-        nodeRepulsion: () => 14000,
-        idealEdgeLength: () => 130,
-        gravity: 0.25,
-        numIter: 1000,
-      },
     });
 
-    cy.ready(() => {
-      cy.fit(undefined, 40);
-      setIsCanvasReady(true);
-    });
-
-    const timer = setTimeout(() => {
-      setIsCanvasReady(true);
-    }, 50);
-
-    // Single Tap: Select node for linking
+    // TAP LISTENER WITH BOTH DOUBLE-TAP TIME DELTA & SHIFT-CLICK / RIGHT-CLICK FALLBACKS
     cy.on("tap", "node", (evt) => {
       const clickedNodeId = evt.target.id();
+      const now = Date.now();
+      const lastTap = lastTapInfoRef.current;
+      const originalEvent = evt.originalEvent as MouseEvent;
+
+      // Fallback 1: Shift + Click OR Right Click instantly opens sidebar
+      if (originalEvent && (originalEvent.shiftKey || originalEvent.button === 2)) {
+        console.log("[Kotonoha Debug] Mod-click detected on node:", clickedNodeId);
+        openSidebarForNode(clickedNodeId);
+        return;
+      }
+
+      // Check double-tap time delta (350ms)
+      if (lastTap.nodeId === clickedNodeId && now - lastTap.time < 350) {
+        console.log("[Kotonoha Debug] Fast double-tap registered on node:", clickedNodeId);
+        openSidebarForNode(clickedNodeId);
+        lastTapInfoRef.current = { time: 0, nodeId: null };
+        return;
+      }
+
+      lastTapInfoRef.current = { time: now, nodeId: clickedNodeId };
+
+      // SINGLE CLICK LINKING LOGIC
       const currentSource = sourceNodeIdRef.current;
 
       if (!currentSource) {
         setSourceNode(clickedNodeId);
-      } else if (currentSource !== clickedNodeId) {
-        handleCreateEdge(currentSource, clickedNodeId);
-      } else {
+      } else if (currentSource === clickedNodeId) {
         setSourceNode(null);
+      } else {
+        handleCreateEdge(currentSource, clickedNodeId);
       }
     });
 
-    // Double Tap: Open Inspector Modal
+    // Native Cytoscape Double Tap Event (Secondary Backup)
     cy.on("dbltap", "node", (evt) => {
-      const clickedId = evt.target.id();
-      const targetNode = safeNodes.find((n) => n.id === clickedId);
-      if (targetNode) {
-        setInspectedNode(targetNode);
-        setSourceNode(null); // Clear linking state when inspecting
-      }
+      console.log("[Kotonoha Debug] Cytoscape dbltap event fired on:", evt.target.id());
+      openSidebarForNode(evt.target.id());
     });
 
-    // Tap Edge: Confirmation modal to delete link
+    // Right-click context menu prevent default
+    cy.on("cxttap", "node", (evt) => {
+      openSidebarForNode(evt.target.id());
+    });
+
+    // Delete Link Handler
     cy.on("tap", "edge", async (evt) => {
       const edgeId = evt.target.id();
       const edgeData = evt.target.data();
@@ -308,6 +332,7 @@ export default function GraphCanvas({
       }
     });
 
+    // Background Canvas Tap
     cy.on("tap", (evt) => {
       if (evt.target === cy) {
         setSourceNode(null);
@@ -315,26 +340,96 @@ export default function GraphCanvas({
     });
 
     cyRef.current = cy;
+    setIsCanvasReady(true);
 
     return () => {
-      clearTimeout(timer);
       if (cyRef.current) {
         cyRef.current.destroy();
         cyRef.current = null;
       }
     };
+  }, []);
+
+  // 2. DYNAMIC DIFF UPDATER
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+
+    const safeNodes = Array.isArray(nodes) ? nodes : [];
+    const validNodeIds = new Set(safeNodes.map((n) => n.id));
+
+    const safeEdges = (Array.isArray(edges) ? edges : []).filter(
+      (e) => validNodeIds.has(e.source_node_id) && validNodeIds.has(e.target_node_id)
+    );
+
+    cy.batch(() => {
+      const currentCyNodes = new Set(cy.nodes().map((n) => n.id()));
+      const incomingNodeIds = new Set(safeNodes.map((n) => n.id));
+
+      const nodesToAdd = safeNodes.filter((n) => !currentCyNodes.has(n.id));
+      if (nodesToAdd.length > 0) {
+        cy.add(
+          nodesToAdd.map((node) => ({
+            group: "nodes",
+            data: {
+              id: node.id,
+              label: `${node.label}\n${node.reading || ""}`,
+              priority: node.priority_status || "REVIEW",
+              domain: node.domain_type || "LEXICAL",
+            },
+          }))
+        );
+
+        const unpositionedElements = cy.nodes().filter((n) => !currentCyNodes.has(n.id()));
+        unpositionedElements.layout({
+          name: "cose",
+          animate: false,
+          nodeRepulsion: () => 14000,
+          idealEdgeLength: () => 130,
+        }).run();
+      }
+
+      cy.nodes().forEach((n) => {
+        if (!incomingNodeIds.has(n.id())) {
+          cy.remove(n);
+        }
+      });
+
+      const currentCyEdges = new Set(cy.edges().map((e) => e.id()));
+      const incomingEdgeIds = new Set(safeEdges.map((e) => e.id));
+
+      const edgesToAdd = safeEdges.filter((e) => !currentCyEdges.has(e.id));
+      if (edgesToAdd.length > 0) {
+        cy.add(
+          edgesToAdd.map((edge) => ({
+            group: "edges",
+            data: {
+              id: edge.id,
+              source: edge.source_node_id,
+              target: edge.target_node_id,
+              label: edge.relation_type || "",
+            },
+          }))
+        );
+      }
+
+      cy.edges().forEach((e) => {
+        if (!incomingEdgeIds.has(e.id())) {
+          cy.remove(e);
+        }
+      });
+    });
   }, [nodes, edges]);
 
   const handleCreateEdge = async (sourceId: string, targetId: string) => {
     const activeRelation = relationTypeRef.current;
 
     try {
-      // Prevent identical duplicate edge creation
       const conflictCheck = await checkEdgeConflict(sourceId, targetId, activeRelation);
 
       if (conflictCheck.hasError) {
         alert(conflictCheck.message);
-        setSourceNode(null); // Instantly clears white highlight on error
+        setSourceNode(null);
         return;
       }
 
@@ -350,19 +445,19 @@ export default function GraphCanvas({
     } catch (err) {
       console.error("Failed to create edge:", err);
     } finally {
-      setSourceNode(null); // Always reset selection state
+      setSourceNode(null);
     }
   };
 
   return (
     <div className="graph-container">
-      {/* Top Connection Controls */}
+      {/* Canvas Toolbar */}
       <div className="canvas-toolbar">
         <div className="connection-controls">
           <span className="control-label">
             {sourceNodeId
               ? "Select target node to link..."
-              : "Click node to link • Double-click to inspect • Click edge to delete:"}
+              : "Click to link • Double-click / Right-click / Shift-click to inspect:"}
           </span>
           <select
             value={relationType}
@@ -387,11 +482,14 @@ export default function GraphCanvas({
       </div>
 
       {/* Floating Viewport Controls */}
-      <div className="viewport-controls">
-        <button type="button" onClick={handleZoomIn} title="Zoom In">+</button>
-        <button type="button" onClick={handleZoomOut} title="Zoom Out">−</button>
+      <div className={`viewport-controls ${inspectedNode ? "sidebar-open" : ""}`}>
+        <div className="zoom-row">
+          <button type="button" onClick={handleZoomIn} title="Zoom In">+</button>
+          <button type="button" onClick={handleZoomOut} title="Zoom Out">−</button>
+        </div>
+        <div className="viewport-divider" />
         <button type="button" onClick={handleFitView} className="btn-fit" title="Recenter View">
-          Recenter
+          Center
         </button>
       </div>
 
@@ -401,57 +499,64 @@ export default function GraphCanvas({
         </div>
       )}
 
-      {/* 2D Canvas Element */}
+      {/* 2D Canvas Container */}
       <div
         ref={containerRef}
         className={`cytoscape-canvas ${isCanvasReady ? "ready" : ""}`}
       />
 
-      {/* Node Detail Inspector Modal */}
+      {/* Right Docked Inspector Sidebar */}
       {inspectedNode && (
-        <div className="modal-overlay" onClick={() => setInspectedNode(null)}>
-          <div className="inspector-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title-group">
-                <span className="modal-label">{inspectedNode.label}</span>
-                <span className="modal-reading">({inspectedNode.reading || "—"})</span>
-              </div>
-              <button
-                type="button"
-                className="modal-close"
-                onClick={() => setInspectedNode(null)}
-              >
-                ×
-              </button>
+        <div className="inspector-sidebar">
+          <div className="sidebar-header">
+            <div className="sidebar-title-group">
+              <span className="sidebar-label">{inspectedNode.label || ""}</span>
+              <span className="sidebar-reading">({inspectedNode.reading || "—"})</span>
+            </div>
+            <button
+              type="button"
+              className="sidebar-close"
+              onClick={() => setInspectedNode(null)}
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="sidebar-body">
+            <div className="sidebar-field">
+              <span className="field-label">English Meaning</span>
+              <span className="field-value">{inspectedNode.meaning_en || "—"}</span>
             </div>
 
-            <div className="modal-body">
-              <div className="modal-field">
-                <span className="field-label">English Meaning:</span>
-                <span className="field-value">{inspectedNode.meaning_en || "—"}</span>
+            <div className="sidebar-field-row">
+              <div className="sidebar-field">
+                <span className="field-label">Domain Type</span>
+                <span className="type-badge">{inspectedNode.domain_type || "LEXICAL"}</span>
               </div>
+              <div className="sidebar-field">
+                <span className="field-label">Priority</span>
+                <span className={`priority-badge ${(inspectedNode.priority_status || "REVIEW").toLowerCase()}`}>
+                  {inspectedNode.priority_status || "REVIEW"}
+                </span>
+              </div>
+            </div>
 
-              <div className="modal-field-row">
-                <div className="modal-field">
-                  <span className="field-label">Domain Type:</span>
-                  <span className="type-badge">{inspectedNode.domain_type}</span>
-                </div>
-                <div className="modal-field">
-                  <span className="field-label">Priority:</span>
-                  <span className={`priority-badge ${inspectedNode.priority_status.toLowerCase()}`}>
-                    {inspectedNode.priority_status}
-                  </span>
-                </div>
-              </div>
-
-              <div className="modal-field">
-                <span className="field-label">Personal Context / Notes:</span>
-                <div className="context-box">
-                  {getPersonalContext(inspectedNode.attributes) || (
-                    <span className="empty-context">No context notes added for this entry.</span>
-                  )}
-                </div>
-              </div>
+            <div className="sidebar-field">
+              <span className="field-label">Personal Context / Memory Note</span>
+              <textarea
+                className="context-textarea"
+                placeholder="Write memory anchors, VTuber stream contexts, or usage notes..."
+                value={editedContext}
+                onChange={(e) => setEditedContext(e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn-save-note"
+                onClick={handleSaveNotes}
+                disabled={isSavingNote}
+              >
+                {isSavingNote ? "Saving..." : "Save Note"}
+              </button>
             </div>
           </div>
         </div>
