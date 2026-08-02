@@ -309,3 +309,22 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.select-wrapper select optgroup {
+  background-color: #18181b;
+  color: #a855f7;
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
+.select-wrapper select option {
+  background-color: #09090b;
+  color: #f4f4f5;
+  font-weight: normal;
+  padding: 4px 8px;
+}
+
+.select-wrapper select option:disabled {
+  color: #52525b;
+  background-color: #121215;
+}

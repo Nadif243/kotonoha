@@ -137,7 +137,34 @@ export default function GraphCanvas({
     cyRef.current.fit(undefined, 40);
   };
 
-  // INITIALIZE CANVAS ONCE
+  // Helper to determine if a relation option is valid for the selected source node
+  const isOptionDisabled = (relType: string): boolean => {
+    if (!sourceNodeId) return false; // If no node clicked yet, all options remain enabled
+
+    const sourceNode = nodes.find((n) => n.id === sourceNodeId);
+    if (!sourceNode) return false;
+
+    const sourceType = sourceNode.domain_type;
+
+    if (sourceType === "LEXICAL") {
+      // Words cannot start MUTUAL_HUB
+      return relType === "MUTUAL_HUB";
+    }
+
+    if (sourceType === "GRAMMAR") {
+      // Grammar rules can only link to Hubs
+      return relType !== "BELONGS_TO_HUB";
+    }
+
+    if (sourceType === "DOMAIN_HUB") {
+      // Hubs can only link to other Hubs
+      return relType !== "BELONGS_TO_HUB" && relType !== "MUTUAL_HUB";
+    }
+
+    return false;
+  };
+
+  // INITIALIZE CANVAS
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -146,6 +173,7 @@ export default function GraphCanvas({
       autounselectify: true,
       elements: [],
       style: [
+        // Base Node Style
         {
           selector: "node",
           style: {
@@ -162,20 +190,35 @@ export default function GraphCanvas({
             "background-color": "#18181b",
           },
         },
+        // Domain Shapes
         {
           selector: 'node[domain = "LEXICAL"]',
           style: { shape: "ellipse" },
         },
         {
           selector: 'node[domain = "GRAMMAR"]',
-          style: { shape: "round-rectangle" },
+          style: {
+            shape: "round-rectangle",
+            "border-color": "#3b82f6",
+            "background-color": "#0f172a",
+            width: 52,
+            height: 40,
+          },
         },
         {
           selector: 'node[domain = "DOMAIN_HUB"]',
-          style: { shape: "diamond" },
+          style: {
+            shape: "diamond",
+            "border-color": "#a855f7",
+            "background-color": "#2e1065",
+            width: 64,
+            height: 64,
+            "font-weight": "bold",
+          },
         },
+        // Priority Overrides for Lexical / Grammar Nodes
         {
-          selector: 'node[priority = "HARD"]',
+          selector: 'node[domain != "DOMAIN_HUB"][priority = "HARD"]',
           style: {
             width: 58,
             height: 58,
@@ -187,7 +230,7 @@ export default function GraphCanvas({
           },
         },
         {
-          selector: 'node[priority = "REVIEW"]',
+          selector: 'node[domain != "DOMAIN_HUB"][priority = "REVIEW"]',
           style: {
             width: 46,
             height: 46,
@@ -196,7 +239,7 @@ export default function GraphCanvas({
           },
         },
         {
-          selector: 'node[priority = "SETTLED"]',
+          selector: 'node[domain != "DOMAIN_HUB"][priority = "SETTLED"]',
           style: {
             width: 36,
             height: 36,
@@ -211,9 +254,10 @@ export default function GraphCanvas({
           style: {
             "border-width": 3,
             "border-color": "#ffffff",
-            "background-color": "#27272a",
+            "background-color": "#3f3f46",
           },
         },
+        // Edge Base Styling
         {
           selector: "edge",
           style: {
@@ -231,6 +275,7 @@ export default function GraphCanvas({
             "text-border-radius": "2px",
           },
         },
+        // Symmetric Relations (Bidirectional Arrows)
         {
           selector: 'edge[label = "SYNONYM"], edge[label = "OPPOSITE"], edge[label = "SIMILAR_KANJI"]',
           style: {
@@ -238,14 +283,27 @@ export default function GraphCanvas({
             "target-arrow-shape": "vee",
             "source-arrow-color": "#52525b",
             "target-arrow-color": "#52525b",
+            "line-color": "#3f3f46",
           },
         },
+        // Directional Relations (Asymmetric Arrow pointing to Target)
         {
-          selector: 'edge[label = "TRANSITIVE_PAIR"], edge[label = "USES_GRAMMAR"]',
+          selector: 'edge[label = "TRANSITIVE_PAIR"], edge[label = "USES_GRAMMAR"], edge[label = "BELONGS_TO_HUB"]',
           style: {
             "source-arrow-shape": "none",
             "target-arrow-shape": "vee",
-            "target-arrow-color": "#52525b",
+            "target-arrow-color": "#a855f7",
+            "line-color": "#52525b",
+          },
+        },
+        {
+          selector: 'edge[label = "MUTUAL_HUB"]',
+          style: {
+            "source-arrow-shape": "vee",
+            "target-arrow-shape": "vee",
+            "source-arrow-color": "#a855f7",
+            "target-arrow-color": "#a855f7",
+            "line-color": "#a855f7",
           },
         },
         {
@@ -257,14 +315,6 @@ export default function GraphCanvas({
             "target-arrow-color": "#ef4444",
             color: "#ef4444",
           },
-        },
-        {
-          selector: 'edge[label = "TRANSITIVE_PAIR"], edge[label = "USES_GRAMMAR"], edge[label = "BELONGS_TO_HUB"]',
-          style: {
-            "source-arrow-shape": "none",
-            "target-arrow-shape": "vee",
-            "target-arrow-color": "#6366f1",
-        },
         },
       ],
     });
@@ -438,7 +488,7 @@ export default function GraphCanvas({
         source_node_id: sourceId,
         target_node_id: targetId,
         relation_type: activeRelation,
-        is_directional: ["TRANSITIVE_PAIR", "USES_GRAMMAR"].includes(activeRelation),
+        is_directional: ["TRANSITIVE_PAIR", "USES_GRAMMAR", "BELONGS_TO_HUB"].includes(activeRelation),
       });
 
       const updatedEdges = await getAllEdges();
@@ -463,12 +513,35 @@ export default function GraphCanvas({
               value={relationType}
               onChange={(e) => handleRelationChange(e.target.value)}
             >
-              <option value="SIMILAR_KANJI">SIMILAR_KANJI</option>
-              <option value="TRANSITIVE_PAIR">TRANSITIVE_PAIR</option>
-              <option value="SYNONYM">SYNONYM</option>
-              <option value="OPPOSITE">OPPOSITE</option>
-              <option value="USES_GRAMMAR">USES_GRAMMAR</option>
-              <option value="BELONGS_TO_HUB">BELONGS_TO_HUB</option>
+              <optgroup label="Lexical Relations">
+                <option value="SIMILAR_KANJI" disabled={isOptionDisabled("SIMILAR_KANJI")}>
+                  SIMILAR_KANJI (↔)
+                </option>
+                <option value="TRANSITIVE_PAIR" disabled={isOptionDisabled("TRANSITIVE_PAIR")}>
+                  TRANSITIVE_PAIR (→)
+                </option>
+                <option value="SYNONYM" disabled={isOptionDisabled("SYNONYM")}>
+                  SYNONYM (↔)
+                </option>
+                <option value="OPPOSITE" disabled={isOptionDisabled("OPPOSITE")}>
+                  OPPOSITE (↔)
+                </option>
+              </optgroup>
+
+              <optgroup label="Grammar Relations">
+                <option value="USES_GRAMMAR" disabled={isOptionDisabled("USES_GRAMMAR")}>
+                  USES_GRAMMAR (→)
+                </option>
+              </optgroup>
+
+              <optgroup label="Context Hub Anchors">
+                <option value="BELONGS_TO_HUB" disabled={isOptionDisabled("BELONGS_TO_HUB")}>
+                  BELONGS_TO_HUB (Single →)
+                </option>
+                <option value="MUTUAL_HUB" disabled={isOptionDisabled("MUTUAL_HUB")}>
+                  MUTUAL_HUB (Dual ↔)
+                </option>
+              </optgroup>
             </select>
             {sourceNodeId && (
               <button

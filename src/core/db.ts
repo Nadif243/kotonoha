@@ -132,41 +132,84 @@ export async function checkEdgeConflict(
   targetId: string,
   relationType: string
 ): Promise<{ hasError: boolean; message?: string }> {
-  // 1. Block Self-linking
-  if (sourceId === targetId) {
-    return { hasError: true, message: "A node cannot link to itself!" };
-  }
-
   const db = await getDb();
 
-  // 2. Check exact duplicate (either direction)
-  const dupResult = await db.select<{ count: number }[]>(
-    `SELECT COUNT(*) as count FROM edges
-     WHERE relation_type = $3
-     AND ((source_node_id = $1 AND target_node_id = $2) OR (source_node_id = $2 AND target_node_id = $1));`,
+  // 1. Fetch Node Types
+  const sourceRes = await db.select<NodeEntity[]>(
+    "SELECT * FROM nodes WHERE id = $1",
+    [sourceId]
+  );
+  const targetRes = await db.select<NodeEntity[]>(
+    "SELECT * FROM nodes WHERE id = $1",
+    [targetId]
+  );
+
+  if (sourceRes.length === 0 || targetRes.length === 0) {
+    return { hasError: true, message: "One of the selected nodes no longer exists." };
+  }
+
+  const sourceNode = sourceRes[0];
+  const targetNode = targetRes[0];
+
+  const sourceType = sourceNode.domain_type;
+  const targetType = targetNode.domain_type;
+
+  // 2. Enforce Relation Compatibility Matrix
+
+  //  A: Lexical Relations (LEXICAL <-> LEXICAL Only)
+  const lexicalOnlyRelations = ["SIMILAR_KANJI", "SYNONYM", "OPPOSITE", "TRANSITIVE_PAIR"];
+  if (lexicalOnlyRelations.includes(relationType)) {
+    if (sourceType !== "LEXICAL" || targetType !== "LEXICAL") {
+      return {
+        hasError: true,
+        message: `"${relationType}" relation can only connect two LEXICAL (word) nodes!`,
+      };
+    }
+  }
+
+  //  B: Grammar Relation (LEXICAL -> GRAMMAR Only)
+  if (relationType === "USES_GRAMMAR") {
+    if (sourceType !== "LEXICAL" || targetType !== "GRAMMAR") {
+      return {
+        hasError: true,
+        message: `"USES_GRAMMAR" relation must point from a LEXICAL node (source) to a GRAMMAR rule (target)!`,
+      };
+    }
+  }
+
+  //  C: Hub Anchors (ANY -> DOMAIN_HUB)
+  if (relationType === "BELONGS_TO_HUB") {
+    if (targetType !== "DOMAIN_HUB") {
+      return {
+        hasError: true,
+        message: `"BELONGS_TO_HUB" relation must point TO a DOMAIN_HUB node as its target!`,
+      };
+    }
+  }
+
+  //  D: Mutual Hub Anchor (DOMAIN_HUB <-> DOMAIN_HUB Only)
+  if (relationType === "MUTUAL_HUB") {
+    if (sourceType !== "DOMAIN_HUB" || targetType !== "DOMAIN_HUB") {
+      return {
+        hasError: true,
+        message: `"MUTUAL_HUB" relation can only connect two DOMAIN_HUB nodes!`,
+      };
+    }
+  }
+
+  // 3. Prevent Duplicate Edge Creation
+  const existingEdge = await db.select<EdgeEntity[]>(
+    `SELECT * FROM edges
+     WHERE (source_node_id = $1 AND target_node_id = $2 AND relation_type = $3)
+        OR (source_node_id = $2 AND target_node_id = $1 AND relation_type = $3)`,
     [sourceId, targetId, relationType]
   );
 
-  if (dupResult[0].count > 0) {
-    return { hasError: true, message: `The connection "${relationType}" already exists between these nodes!` };
-  }
-
-  // 3. Mutual exclusion check between SYNONYM and OPPOSITE
-  if (relationType === "SYNONYM" || relationType === "OPPOSITE") {
-    const conflictingType = relationType === "SYNONYM" ? "OPPOSITE" : "SYNONYM";
-    const conflictResult = await db.select<{ count: number }[]>(
-      `SELECT COUNT(*) as count FROM edges
-       WHERE relation_type = $3
-       AND ((source_node_id = $1 AND target_node_id = $2) OR (source_node_id = $2 AND target_node_id = $1));`,
-      [sourceId, targetId, conflictingType]
-    );
-
-    if (conflictResult[0].count > 0) {
-      return {
-        hasError: true,
-        message: `Cannot add "${relationType}" because these nodes are already linked as "${conflictingType}"!`,
-      };
-    }
+  if (existingEdge.length > 0) {
+    return {
+      hasError: true,
+      message: `A "${relationType}" edge already exists between "${sourceNode.label}" and "${targetNode.label}".`,
+    };
   }
 
   return { hasError: false };
