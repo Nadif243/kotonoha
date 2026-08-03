@@ -11,6 +11,7 @@ import {
   getAllEdges,
   reorderNodes,
 } from "../core/db";
+import ContextMenu, { ContextMenuTarget } from "./ContextMenu";
 import "./GridView.css";
 
 interface GridViewProps {
@@ -58,17 +59,37 @@ export default function GridView({
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
+  // Context Menu Popup Target State
+  const [contextMenuTarget, setContextMenuTarget] = useState<ContextMenuTarget | null>(null);
+
   const domainHubs = nodes.filter((n) => n.domain_type === "DOMAIN_HUB");
 
-  // Sync display list when node count changes
+  // Keep local displayNodes synced with parent nodes prop when entries change
   useEffect(() => {
     setDisplayNodes(nodes);
-  }, [nodes.length]);
+  }, [nodes]);
 
   // Helper to get creation order sequence (#1, #2, etc)
   const getOriginalCreationIndex = (nodeId: string): number => {
     const sortedByOldest = [...nodes].sort((a, b) => a.id.localeCompare(b.id));
     return sortedByOldest.findIndex((n) => n.id === nodeId) + 1;
+  };
+
+  // Right-click Row Handler
+  const handleRowContextMenu = (e: React.MouseEvent, nodeTarget: NodeEntity) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenuTarget({
+      x: e.clientX,
+      y: e.clientY,
+      node: nodeTarget,
+    });
+  };
+
+  // Global Context Menu Disabler (Type-safe & React compliant)
+  const handleContainerContextMenu = (e: React.MouseEvent) => {
+    // Selalu prevent default menu bawaan browser di seluruh workbench
+    e.preventDefault();
   };
 
   // Header Click Sorting
@@ -253,6 +274,7 @@ export default function GridView({
 
       // Refresh list
       const updated = await getAllNodes();
+      setDisplayNodes(updated);
       onNodesChange(updated);
 
       // Reset form fields
@@ -272,6 +294,7 @@ export default function GridView({
     try {
       await deleteNode(id);
       const updated = await getAllNodes();
+      setDisplayNodes(updated);
       onNodesChange(updated);
       if (onEdgesChange) {
         const updatedEdges = await getAllEdges();
@@ -282,6 +305,7 @@ export default function GridView({
     }
   };
 
+  // Dynamic Priority Cycle with Immediate Local UI Sync
   const handleCyclePriority = async (node: NodeEntity) => {
     const cycleMap: Record<PriorityStatus, PriorityStatus> = {
       HARD: "REVIEW",
@@ -290,6 +314,12 @@ export default function GridView({
     };
 
     const nextPriority = cycleMap[node.priority_status];
+
+    // Optimistically update local display state immediately
+    const updatedLocally = displayNodes.map((n) =>
+      n.id === node.id ? { ...n, priority_status: nextPriority } : n
+    );
+    setDisplayNodes(updatedLocally);
 
     try {
       await updateNodePriority(node.id, nextPriority);
@@ -307,15 +337,28 @@ export default function GridView({
     setEditMeaning(node.meaning_en || "");
   };
 
+  // Save Edit with Immediate Local UI Sync
   const handleSaveEdit = async () => {
     if (!editingNode) return;
+
+    const trimmedL = editLabel.trim();
+    const trimmedR = editReading.trim();
+    const trimmedM = editMeaning.trim();
+
+    // Optimistically update local UI state immediately
+    const updatedLocally = displayNodes.map((n) =>
+      n.id === editingNode.id
+        ? { ...n, label: trimmedL, reading: trimmedR, meaning_en: trimmedM }
+        : n
+    );
+    setDisplayNodes(updatedLocally);
 
     try {
       await updateNodeDetails(
         editingNode.id,
-        editLabel.trim(),
-        editReading.trim(),
-        editMeaning.trim()
+        trimmedL,
+        trimmedR,
+        trimmedM
       );
 
       const updated = await getAllNodes();
@@ -335,7 +378,11 @@ export default function GridView({
   });
 
   return (
-    <div className="grid-workbench" onPointerUp={handlePointerUp}>
+    <div
+      className="grid-workbench"
+      onPointerUp={handlePointerUp}
+      onContextMenu={handleContainerContextMenu}
+    >
       {/* Category Navigation Tabs */}
       <div className="view-tabs">
         <button
@@ -499,7 +546,7 @@ export default function GridView({
       {/* Grid Object Container */}
       <div className="grid-table-container">
         {/* Table Header */}
-        <div className="grid-table-header">
+        <div className="grid-table-header" onContextMenu={(e) => e.preventDefault()}>
           <div
             className={`grid-cell cell-seq sortable ${
               activeSortCol === "INDEX" ? "active-sort" : ""
@@ -566,8 +613,9 @@ export default function GridView({
                     : ""
                 }`}
                 onPointerEnter={() => handlePointerEnter(index)}
+                onContextMenu={(e) => handleRowContextMenu(e, node)}
               >
-                {/* Drag Handle Grip (Triggers row hold) */}
+                {/* Drag Handle Grip */}
                 <div
                   className="grid-cell cell-seq drag-handle"
                   onPointerDown={() => handlePointerDown(index)}
@@ -691,6 +739,20 @@ export default function GridView({
           )}
         </div>
       </div>
+
+      {/* Render Context Menu Popup */}
+      {contextMenuTarget && (
+        <ContextMenu
+          target={contextMenuTarget}
+          onClose={() => setContextMenuTarget(null)}
+          onInspect={(node) => {
+            console.log("Inspect triggered for:", node.label);
+          }}
+          onQuickEdit={(node) => startEditing(node)}
+          onCyclePriority={(node) => handleCyclePriority(node)}
+          onDelete={(node) => handleDelete(node.id)}
+        />
+      )}
     </div>
   );
 }

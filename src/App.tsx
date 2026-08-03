@@ -11,6 +11,7 @@ export default function App() {
   const [nodes, setNodes] = useState<NodeEntity[]>([]);
   const [edges, setEdges] = useState<EdgeEntity[]>([]);
 
+  // 1. Effect Khusus Database Initialization
   useEffect(() => {
     async function init() {
       try {
@@ -25,6 +26,19 @@ export default function App() {
       }
     }
     init();
+  }, []);
+
+  // 2. Effect Khusus Global Window Listener (Context Menu Guardrail)
+  useEffect(() => {
+    const disableNativeContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+
+    window.addEventListener("contextmenu", disableNativeContextMenu);
+
+    return () => {
+      window.removeEventListener("contextmenu", disableNativeContextMenu);
+    };
   }, []);
 
   return (
