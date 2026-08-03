@@ -441,31 +441,58 @@ export default function GridView({
                 onClick={() => handleSortClick("INDEX")}
                 title="Click to sort by entry creation order"
               >
-                # {sortColumn === "INDEX" ? (sortDirection === "ASC" ? "▲" : "▼") : ""}
+                #
+                <span
+                  className={`sort-arrow ${
+                    sortColumn === "INDEX" ? "active" : "inactive"
+                  }`}
+                >
+                  {sortDirection === "ASC" ? "▲" : "▼"}
+                </span>
               </th>
-              <th>{activeTab === "DOMAIN_HUB" ? "Hub Title" : "Entity / Word"}</th>
-              {activeTab !== "DOMAIN_HUB" && <th>Reading</th>}
+
+              <th className="col-label">
+                {activeTab === "DOMAIN_HUB" ? "Hub Title" : "Entity / Word"}
+              </th>
+
+              {activeTab !== "DOMAIN_HUB" && <th className="col-reading">Reading</th>}
+
               {activeTab !== "DOMAIN_HUB" && (
                 <th
-                  className="sortable-th"
+                  className="sortable-th col-meaning"
                   onClick={() => handleSortClick("MEANING")}
                   title="Click to sort alphabetically by meaning"
                 >
-                  Meaning / Description{" "}
-                  {sortColumn === "MEANING" ? (sortDirection === "ASC" ? "▲" : "▼") : ""}
+                  Meaning / Description
+                  <span
+                    className={`sort-arrow ${
+                      sortColumn === "MEANING" ? "active" : "inactive"
+                    }`}
+                  >
+                    {sortDirection === "ASC" ? "▲" : "▼"}
+                  </span>
                 </th>
               )}
-              {activeTab === "DICT_INDEX" && <th>Type</th>}
+
+              {activeTab === "DICT_INDEX" && <th className="col-type">Type</th>}
+
               {activeTab !== "DOMAIN_HUB" && (
                 <th
-                  className="sortable-th"
+                  className="sortable-th col-priority"
                   onClick={() => handleSortClick("PRIORITY")}
                   title="Click to group by learning priority (Hard -> Review -> Settled)"
                 >
-                  Priority{" "}
-                  {sortColumn === "PRIORITY" ? (sortDirection === "ASC" ? "▲" : "▼") : ""}
+                  Priority
+                  <span
+                    className={`sort-arrow ${
+                      sortColumn === "PRIORITY" ? "active" : "inactive"
+                    }`}
+                  >
+                    {sortDirection === "ASC" ? "▲" : "▼"}
+                  </span>
                 </th>
               )}
+
               <th className="col-actions">Actions</th>
             </tr>
           </thead>

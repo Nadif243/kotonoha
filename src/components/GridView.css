@@ -111,14 +111,6 @@
   width: 40px;
 }
 
-.type-badge {
-  font-size: 0.7rem;
-  background-color: #27272a;
-  padding: 2px 6px;
-  border-radius: 4px;
-  color: #a1a1aa;
-}
-
 .priority-badge {
   font-size: 0.7rem;
   padding: 2px 6px;
@@ -207,6 +199,8 @@
   border-radius: 4px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
+  background-color: #27272a;
+  color: #a1a1aa;
 }
 
 .type-badge.lexical {
@@ -399,4 +393,73 @@
 .input-group input {
   width: 100%;
   text-overflow: ellipsis;
+}
+
+/* Rigid Table Layout - Prevents Resizing & Reflow Jumps */
+.data-table {
+  width: 100%;
+  table-layout: fixed; /* Force rigid column dimensions */
+  border-collapse: collapse;
+}
+
+/* Header Row Stability */
+.data-table th {
+  white-space: nowrap; /* Prevent text wrapping like # and ▲ into 2 lines */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  padding: 10px 12px;
+}
+
+.data-table td {
+  padding: 8px 12px;
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Fixed Column Width Distribution */
+.col-seq {
+  width: 65px !important; /* Plenty of room for # and arrow side-by-side */
+  text-align: center;
+}
+
+.col-label {
+  width: 20%;
+}
+
+.col-reading {
+  width: 20%;
+}
+
+.col-meaning {
+  width: 30%;
+}
+
+.col-type {
+  width: 12%;
+}
+
+.col-priority {
+  width: 12%;
+}
+
+.col-actions {
+  width: 110px !important;
+  text-align: center;
+}
+
+/* Fixed-Width Reserved Sort Arrows (Prevents Width Shifts) */
+.sort-arrow {
+  display: inline-block;
+  width: 12px;
+  margin-left: 4px;
+  font-size: 0.75rem;
+  text-align: center;
+  color: #a855f7;
+}
+
+.sort-arrow.inactive {
+  visibility: hidden; /* Takes up exact same width, but stays invisible */
 }
