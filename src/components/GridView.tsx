@@ -1,6 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NodeEntity, PriorityStatus, DomainType } from "../types/database";
-import { insertNode, deleteNode, updateNodePriority, checkDuplicateNode, getAllNodes, insertEdge, updateNodeDetails, getAllEdges } from "../core/db";
+import {
+  insertNode,
+  deleteNode,
+  updateNodePriority,
+  checkDuplicateNode,
+  getAllNodes,
+  insertEdge,
+  updateNodeDetails,
+  getAllEdges,
+} from "../core/db";
 import "./GridView.css";
 
 interface GridViewProps {
@@ -10,8 +19,14 @@ interface GridViewProps {
 }
 
 type TabType = "LEXICAL" | "GRAMMAR" | "DOMAIN_HUB" | "DICT_INDEX";
+type SortColumn = "INDEX" | "PRIORITY" | "MEANING";
+type SortDirection = "ASC" | "DESC";
 
-export default function GridView({ nodes, onNodesChange, onEdgesChange }: GridViewProps) {
+export default function GridView({
+  nodes,
+  onNodesChange,
+  onEdgesChange,
+}: GridViewProps) {
   // Navigation Tab State (Default: LEXICAL)
   const [activeTab, setActiveTab] = useState<TabType>("LEXICAL");
 
@@ -31,7 +46,36 @@ export default function GridView({ nodes, onNodesChange, onEdgesChange }: GridVi
   const [editReading, setEditReading] = useState("");
   const [editMeaning, setEditMeaning] = useState("");
 
+  // Persistent Sorting State (Saved to localStorage)
+  const [sortColumn, setSortColumn] = useState<SortColumn>(() => {
+    return (
+      (localStorage.getItem("kotonoha_grid_sort_col") as SortColumn) || "INDEX"
+    );
+  });
+  const [sortDirection, setSortDirection] = useState<SortDirection>(() => {
+    return (
+      (localStorage.getItem("kotonoha_grid_sort_dir") as SortDirection) ||
+      "DESC"
+    );
+  });
+
   const domainHubs = nodes.filter((n) => n.domain_type === "DOMAIN_HUB");
+
+  // Save sorting preference changes to localStorage
+  useEffect(() => {
+    localStorage.setItem("kotonoha_grid_sort_col", sortColumn);
+    localStorage.setItem("kotonoha_grid_sort_dir", sortDirection);
+  }, [sortColumn, sortDirection]);
+
+  // Handle Header Column Click for Sorting
+  const handleSortClick = (col: SortColumn) => {
+    if (sortColumn === col) {
+      setSortDirection((prev) => (prev === "ASC" ? "DESC" : "ASC"));
+    } else {
+      setSortColumn(col);
+      setSortDirection("ASC");
+    }
+  };
 
   // Sync Form Domain Type when Tab Changes
   const handleTabChange = (tab: TabType) => {
@@ -71,8 +115,12 @@ export default function GridView({ nodes, onNodesChange, onEdgesChange }: GridVi
       }
 
       const id = `node_${Date.now()}`;
+
+      // Structure new note as array while remaining compatible
       const attributesJSON = JSON.stringify({
-        personal_context: personalContext || "",
+        notes: personalContext.trim()
+          ? [{ id: `note_${Date.now()}`, text: personalContext.trim(), created_at: new Date().toISOString() }]
+          : [],
         example_sentences: [],
       });
 
@@ -118,6 +166,7 @@ export default function GridView({ nodes, onNodesChange, onEdgesChange }: GridVi
   };
 
   const handleDelete = async (id: string) => {
+    if (!window.confirm("Delete this entry and its relations?")) return;
     try {
       await deleteNode(id);
       const updated = await getAllNodes();
@@ -175,14 +224,50 @@ export default function GridView({ nodes, onNodesChange, onEdgesChange }: GridVi
     }
   };
 
-  // Filter nodes based on active tab
-  const filteredNodes = nodes.filter((node) => {
-    if (activeTab === "DICT_INDEX") {
-      // Exclude DOMAIN_HUB entries from the dictionary index
-      return node.domain_type !== "DOMAIN_HUB";
-    }
-    return node.domain_type === activeTab;
-  });
+  // Filter and Sort Processing Logic
+  const getProcessedNodes = () => {
+    let result = nodes.filter((node) => {
+      if (activeTab === "DICT_INDEX") {
+        return node.domain_type !== "DOMAIN_HUB";
+      }
+      return node.domain_type === activeTab;
+    });
+
+    result.sort((a, b) => {
+      if (sortColumn === "INDEX") {
+        const idA = a.id;
+        const idB = b.id;
+        return sortDirection === "ASC"
+          ? idA.localeCompare(idB)
+          : idB.localeCompare(idA);
+      }
+
+      if (sortColumn === "PRIORITY") {
+        const priorityOrder: Record<PriorityStatus, number> = {
+          HARD: 1,
+          REVIEW: 2,
+          SETTLED: 3,
+        };
+        const pA = priorityOrder[a.priority_status || "REVIEW"];
+        const pB = priorityOrder[b.priority_status || "REVIEW"];
+        return sortDirection === "ASC" ? pA - pB : pB - pA;
+      }
+
+      if (sortColumn === "MEANING") {
+        const mA = (a.meaning_en || "").toLowerCase();
+        const mB = (b.meaning_en || "").toLowerCase();
+        return sortDirection === "ASC"
+          ? mA.localeCompare(mB)
+          : mB.localeCompare(mA);
+      }
+
+      return 0;
+    });
+
+    return result;
+  };
+
+  const processedNodes = getProcessedNodes();
 
   return (
     <div className="grid-workbench">
@@ -218,102 +303,129 @@ export default function GridView({ nodes, onNodesChange, onEdgesChange }: GridVi
         </button>
       </div>
 
-      {/* Adaptive Entry Toolbar */}
+      {/* Adaptive Entry Toolbar with Tooltips */}
       <form className="entry-form" onSubmit={handleAddNode}>
-        <select
-          value={domainType}
-          onChange={(e) => setDomainType(e.target.value as DomainType)}
-          className="select-type"
-        >
-          <option value="LEXICAL">Lexical</option>
-          <option value="GRAMMAR">Grammar</option>
-          <option value="DOMAIN_HUB">Domain Hub</option>
-        </select>
+        <div className="input-group" title="Entity domain category">
+          <select
+            value={domainType}
+            onChange={(e) => setDomainType(e.target.value as DomainType)}
+            className="select-type"
+          >
+            <option value="LEXICAL">Lexical</option>
+            <option value="GRAMMAR">Grammar</option>
+            <option value="DOMAIN_HUB">Domain Hub</option>
+          </select>
+        </div>
 
         {/* Input Field 1: Label */}
-        <input
-          type="text"
-          placeholder={
+        <div
+          className="input-group"
+          title={
             domainType === "DOMAIN_HUB"
-              ? "Hub Title (e.g., Chapter 01, Media Stream, Novel Vol. 1)"
+              ? "Hub Title (e.g., Chapter 01, Novel Vol. 1)"
               : domainType === "GRAMMAR"
-              ? "Pattern (e.g., 〜わけにはいかない)"
-              : "Word / Kanji (e.g., 開ける)"
+              ? "Grammar Pattern (e.g., 〜わけにはいかない)"
+              : "Japanese Word / Kanji (e.g., 開ける)"
           }
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          required
-          className="input-main"
-        />
-
-        {/* Input Field 2: Reading */}
-        {domainType !== "DOMAIN_HUB" && (
+        >
           <input
             type="text"
             placeholder={
-              domainType === "GRAMMAR"
-                ? "Reading / Kana (Optional)"
-                : "Reading (e.g., あける)"
+              domainType === "DOMAIN_HUB"
+                ? "Hub Title (e.g., Chapter 01, Novel Vol. 1)"
+                : domainType === "GRAMMAR"
+                ? "Pattern (e.g., 〜わけにはいかない)"
+                : "Word / Kanji (e.g., 開ける) *"
             }
-            value={reading}
-            onChange={(e) => setReading(e.target.value)}
-            required={domainType === "LEXICAL"}
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            required
+            className="input-main"
           />
+        </div>
+
+        {/* Input Field 2: Reading */}
+        {domainType !== "DOMAIN_HUB" && (
+          <div className="input-group" title="Kana reading / Furigana">
+            <input
+              type="text"
+              placeholder={
+                domainType === "GRAMMAR"
+                  ? "Reading / Kana (Optional)"
+                  : "Reading (e.g., あける) *"
+              }
+              value={reading}
+              onChange={(e) => setReading(e.target.value)}
+              required={domainType === "LEXICAL"}
+            />
+          </div>
         )}
 
         {/* Input Field 3: Meaning */}
         {domainType !== "DOMAIN_HUB" && (
-          <input
-            type="text"
-            placeholder={
-              domainType === "GRAMMAR"
-                ? "Usage / Explanation"
-                : "English Meaning (e.g., To open)"
-            }
-            value={meaningEn}
-            onChange={(e) => setMeaningEn(e.target.value)}
-            required={domainType === "LEXICAL"}
-          />
+          <div className="input-group" title="English translation / usage explanation">
+            <input
+              type="text"
+              placeholder={
+                domainType === "GRAMMAR"
+                  ? "Usage / Explanation"
+                  : "English Meaning (e.g., To open) *"
+              }
+              value={meaningEn}
+              onChange={(e) => setMeaningEn(e.target.value)}
+              required={domainType === "LEXICAL"}
+            />
+          </div>
         )}
 
         {/* Attach to Hub Dropdown */}
         {domainType !== "DOMAIN_HUB" && (
-          <select
-            value={selectedHubId}
-            onChange={(e) => setSelectedHubId(e.target.value)}
-            className="select-hub"
-          >
-            <option value="NONE">-- Attach to Hub (None) --</option>
-            {domainHubs.map((hub) => (
-              <option key={hub.id} value={hub.id}>
-                Hub: {hub.label}
-              </option>
-            ))}
-          </select>
+          <div className="input-group" title="Optionally attach entry to a Context Hub">
+            <select
+              value={selectedHubId}
+              onChange={(e) => setSelectedHubId(e.target.value)}
+              className="select-hub"
+            >
+              <option value="NONE">-- Attach to Hub (None) --</option>
+              {domainHubs.map((hub) => (
+                <option key={hub.id} value={hub.id}>
+                  Hub: {hub.label}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
 
         {/* Priority Selector */}
         {domainType !== "DOMAIN_HUB" && (
-          <select
-            value={priorityStatus}
-            onChange={(e) => setPriorityStatus(e.target.value as PriorityStatus)}
-          >
-            <option value="HARD">HARD</option>
-            <option value="REVIEW">REVIEW</option>
-            <option value="SETTLED">SETTLED</option>
-          </select>
+          <div className="input-group" title="Initial study priority status">
+            <select
+              value={priorityStatus}
+              onChange={(e) =>
+                setPriorityStatus(e.target.value as PriorityStatus)
+              }
+            >
+              <option value="HARD">HARD</option>
+              <option value="REVIEW">REVIEW</option>
+              <option value="SETTLED">SETTLED</option>
+            </select>
+          </div>
         )}
 
         {/* Personal Context Field */}
-        <input
-          type="text"
-          placeholder="Memory Note"
-          value={personalContext}
-          onChange={(e) => setPersonalContext(e.target.value)}
-          className="input-context"
-        />
+        <div className="input-group" title="Personal context or memory note">
+          <input
+            type="text"
+            placeholder="Memory Note"
+            value={personalContext}
+            onChange={(e) => setPersonalContext(e.target.value)}
+            className="input-context"
+          />
+        </div>
 
-        <button type="submit">+ Add Entry</button>
+        <button type="submit" className="btn-add-entry">
+          + Add Entry
+        </button>
       </form>
 
       {/* Duplicate Warning Banner */}
@@ -324,26 +436,54 @@ export default function GridView({ nodes, onNodesChange, onEdgesChange }: GridVi
         <table className="data-table">
           <thead>
             <tr>
-              <th>#</th>
+              <th
+                className="sortable-th col-seq"
+                onClick={() => handleSortClick("INDEX")}
+                title="Click to sort by entry creation order"
+              >
+                # {sortColumn === "INDEX" ? (sortDirection === "ASC" ? "▲" : "▼") : ""}
+              </th>
               <th>{activeTab === "DOMAIN_HUB" ? "Hub Title" : "Entity / Word"}</th>
               {activeTab !== "DOMAIN_HUB" && <th>Reading</th>}
-              {activeTab !== "DOMAIN_HUB" && <th>Meaning / Description</th>}
+              {activeTab !== "DOMAIN_HUB" && (
+                <th
+                  className="sortable-th"
+                  onClick={() => handleSortClick("MEANING")}
+                  title="Click to sort alphabetically by meaning"
+                >
+                  Meaning / Description{" "}
+                  {sortColumn === "MEANING" ? (sortDirection === "ASC" ? "▲" : "▼") : ""}
+                </th>
+              )}
               {activeTab === "DICT_INDEX" && <th>Type</th>}
-              {activeTab !== "DOMAIN_HUB" && <th>Priority</th>}
+              {activeTab !== "DOMAIN_HUB" && (
+                <th
+                  className="sortable-th"
+                  onClick={() => handleSortClick("PRIORITY")}
+                  title="Click to group by learning priority (Hard -> Review -> Settled)"
+                >
+                  Priority{" "}
+                  {sortColumn === "PRIORITY" ? (sortDirection === "ASC" ? "▲" : "▼") : ""}
+                </th>
+              )}
               <th className="col-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filteredNodes.length === 0 ? (
+            {processedNodes.length === 0 ? (
               <tr>
                 <td colSpan={7} className="empty-row">
                   No {activeTab.toLowerCase().replace("_", " ")} entries found.
                 </td>
               </tr>
             ) : (
-              filteredNodes.map((node, index) => (
+              processedNodes.map((node, index) => (
                 <tr key={node.id} className={node.priority_status.toLowerCase()}>
-                  <td className="col-seq">{filteredNodes.length - index}</td>
+                  <td className="col-seq">
+                    {sortDirection === "DESC" && sortColumn === "INDEX"
+                      ? processedNodes.length - index
+                      : index + 1}
+                  </td>
                   <td className="col-label">
                     {editingNode?.id === node.id ? (
                       <input
@@ -409,7 +549,11 @@ export default function GridView({ nodes, onNodesChange, onEdgesChange }: GridVi
                         <button type="button" className="btn-save" onClick={handleSaveEdit}>
                           Save
                         </button>
-                        <button type="button" className="btn-cancel-edit" onClick={() => setEditingNode(null)}>
+                        <button
+                          type="button"
+                          className="btn-cancel-edit"
+                          onClick={() => setEditingNode(null)}
+                        >
                           Cancel
                         </button>
                       </div>

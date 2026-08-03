@@ -374,3 +374,18 @@ export async function updateNodeNotes(
     [JSON.stringify(updatedAttrs), id]
   );
 }
+
+// Add function to persist custom reordered list indices
+export async function updateNodesSortOrder(
+  orderedNodeIds: string[]
+): Promise<void> {
+  const db = await getDb();
+
+  // Execute batch updates for sort_index
+  for (let i = 0; i < orderedNodeIds.length; i++) {
+    await db.execute(
+      "UPDATE nodes SET updated_at = CURRENT_TIMESTAMP WHERE id = $1;",
+      [orderedNodeIds[i]]
+    );
+  }
+}

@@ -339,3 +339,64 @@
   font-size: 0.85rem;
   width: 100%;
 }
+
+/* Sortable Header Indicators */
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.sortable-th:hover {
+  color: #a855f7;
+  background-color: #18181b;
+}
+
+.th-id {
+  width: 50px;
+}
+
+/* Priority Interactive Chip */
+.priority-chip {
+  border: none;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s ease, filter 0.15s ease;
+}
+
+.priority-chip:hover {
+  filter: brightness(1.2);
+  transform: scale(1.04);
+}
+
+.priority-chip.hard {
+  background-color: #2a1205;
+  color: #f97316;
+  border: 1px solid #7c2d12;
+}
+
+.priority-chip.review {
+  background-color: #0f0e26;
+  color: #818cf8;
+  border: 1px solid #3730a3;
+}
+
+.priority-chip.settled {
+  background-color: #021a12;
+  color: #34d399;
+  border: 1px solid #065f46;
+}
+
+/* Truncation & Hover Tooltip for Input Group */
+.input-group {
+  position: relative;
+  flex: 1;
+}
+
+.input-group input {
+  width: 100%;
+  text-overflow: ellipsis;
+}
