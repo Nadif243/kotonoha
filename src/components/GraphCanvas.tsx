@@ -11,6 +11,8 @@ interface GraphCanvasProps {
   onEdgesChange: (edges: EdgeEntity[]) => void;
 }
 
+type LayerLens = "ALL" | "DICTIONARY_ONLY" | "HUB_MAP_ONLY";
+
 export default function GraphCanvas({
   nodes = [],
   edges = [],
@@ -25,10 +27,12 @@ export default function GraphCanvas({
   const edgesRef = useRef<EdgeEntity[]>(edges);
   const sourceNodeIdRef = useRef<string | null>(null);
   const relationTypeRef = useRef<string>("SIMILAR_KANJI");
+  const activeLensRef = useRef<LayerLens>("ALL");
 
-  // React State for UI
+  // React States for UI Controls
   const [sourceNodeId, setSourceNodeIdState] = useState<string | null>(null);
   const [relationType, setRelationTypeState] = useState<string>("SIMILAR_KANJI");
+  const [activeLens, setActiveLens] = useState<LayerLens>("ALL");
   const [isCanvasReady, setIsCanvasReady] = useState<boolean>(false);
 
   // Right Sidebar State
@@ -36,7 +40,7 @@ export default function GraphCanvas({
   const [editedContext, setEditedContext] = useState<string>("");
   const [isSavingNote, setIsSavingNote] = useState<boolean>(false);
 
-  // Double-tap timestamp tracker
+  // Double-tap tracker
   const lastTapInfoRef = useRef<{ time: number; nodeId: string | null }>({
     time: 0,
     nodeId: null,
@@ -51,17 +55,53 @@ export default function GraphCanvas({
     sourceNodeIdRef.current = id;
     setSourceNodeIdState(id);
 
-    if (cyRef.current) {
-      cyRef.current.nodes().removeClass("highlighted");
-      if (id) {
-        cyRef.current.$id(id).addClass("highlighted");
-      }
+    const cy = cyRef.current;
+    if (!cy) return;
+
+    cy.nodes().removeClass("highlighted");
+
+    if (id) {
+      cy.$id(id).addClass("highlighted");
+      applyNodeSpotlight(id);
+    } else {
+      clearNodeSpotlight();
     }
+  };
+
+  const applyNodeSpotlight = (focusedNodeId: string) => {
+    const cy = cyRef.current;
+    if (!cy) return;
+
+    const focusedNode = cy.$id(focusedNodeId);
+    if (!focusedNode.length) return;
+
+    const neighborhood = focusedNode.closedNeighborhood();
+
+    cy.batch(() => {
+      cy.elements().removeClass("dimmed").removeClass("spotlight");
+      cy.elements().difference(neighborhood).addClass("dimmed");
+      neighborhood.addClass("spotlight");
+    });
+  };
+
+  const clearNodeSpotlight = () => {
+    const cy = cyRef.current;
+    if (!cy) return;
+
+    cy.batch(() => {
+      cy.elements().removeClass("dimmed").removeClass("spotlight");
+    });
   };
 
   const handleRelationChange = (newType: string) => {
     relationTypeRef.current = newType;
     setRelationTypeState(newType);
+  };
+
+  const handleLensChange = (lens: LayerLens) => {
+    activeLensRef.current = lens;
+    setActiveLens(lens);
+    setSourceNode(null);
   };
 
   const getPersonalContext = (attributesStr?: string): string => {
@@ -110,33 +150,6 @@ export default function GraphCanvas({
     }
   };
 
-  const handleZoomIn = () => {
-    if (!cyRef.current) return;
-    cyRef.current.zoom({
-      level: cyRef.current.zoom() * 1.2,
-      renderedPosition: {
-        x: cyRef.current.width() / 2,
-        y: cyRef.current.height() / 2,
-      },
-    });
-  };
-
-  const handleZoomOut = () => {
-    if (!cyRef.current) return;
-    cyRef.current.zoom({
-      level: cyRef.current.zoom() * 0.8,
-      renderedPosition: {
-        x: cyRef.current.width() / 2,
-        y: cyRef.current.height() / 2,
-      },
-    });
-  };
-
-  const handleFitView = () => {
-    if (!cyRef.current) return;
-    cyRef.current.fit(undefined, 40);
-  };
-
   // Helper to determine if a relation option is valid for the selected source node
   const isOptionDisabled = (relType: string): boolean => {
     if (!sourceNodeId) return false; // If no node clicked yet, all options remain enabled
@@ -164,6 +177,33 @@ export default function GraphCanvas({
     return false;
   };
 
+  const handleZoomIn = () => {
+    if (!cyRef.current) return;
+    cyRef.current.zoom({
+      level: cyRef.current.zoom() * 1.2,
+      renderedPosition: {
+        x: cyRef.current.width() / 2,
+        y: cyRef.current.height() / 2,
+      },
+    });
+  };
+
+  const handleZoomOut = () => {
+    if (!cyRef.current) return;
+    cyRef.current.zoom({
+      level: cyRef.current.zoom() * 0.8,
+      renderedPosition: {
+        x: cyRef.current.width() / 2,
+        y: cyRef.current.height() / 2,
+      },
+    });
+  };
+
+  const handleFitView = () => {
+    if (!cyRef.current) return;
+    cyRef.current.fit(undefined, 40);
+  };
+
   // INITIALIZE CANVAS
   useEffect(() => {
     if (!containerRef.current) return;
@@ -188,6 +228,7 @@ export default function GraphCanvas({
             "border-width": 2,
             "border-color": "#27272a",
             "background-color": "#18181b",
+            transition: "property: opacity, border-color, background-color; duration: 0.2s;",
           },
         },
         // Domain Shapes
@@ -273,6 +314,7 @@ export default function GraphCanvas({
             "text-background-opacity": 0.85,
             "text-background-padding": "2px",
             "text-border-radius": "2px",
+            transition: "property: opacity, line-color; duration: 0.2s;",
           },
         },
         // Symmetric Relations (Bidirectional Arrows)
@@ -283,7 +325,6 @@ export default function GraphCanvas({
             "target-arrow-shape": "vee",
             "source-arrow-color": "#52525b",
             "target-arrow-color": "#52525b",
-            "line-color": "#3f3f46",
           },
         },
         // Directional Relations (Asymmetric Arrow pointing to Target)
@@ -296,6 +337,7 @@ export default function GraphCanvas({
             "line-color": "#52525b",
           },
         },
+        // Mutual Hub Relations
         {
           selector: 'edge[label = "MUTUAL_HUB"]',
           style: {
@@ -306,14 +348,17 @@ export default function GraphCanvas({
             "line-color": "#a855f7",
           },
         },
+        // Spotlight Dimming Rules
         {
-          selector: "edge:hover",
+          selector: ".dimmed",
           style: {
-            width: 2.5,
-            "line-color": "#ef4444",
-            "source-arrow-color": "#ef4444",
-            "target-arrow-color": "#ef4444",
-            color: "#ef4444",
+            opacity: 0.15,
+          },
+        },
+        {
+          selector: "node.spotlight",
+          style: {
+            opacity: 1,
           },
         },
       ],
@@ -401,13 +446,25 @@ export default function GraphCanvas({
     };
   }, []);
 
-  // DYNAMIC DIFF UPDATER
+  // DYNAMIC DIFF UPDATER & LAYER FILTERING LENS
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy) return;
 
     const safeNodes = Array.isArray(nodes) ? nodes : [];
-    const validNodeIds = new Set(safeNodes.map((n) => n.id));
+
+    // Filter nodes based on active layer lens
+    const lensFilteredNodes = safeNodes.filter((node) => {
+      if (activeLens === "DICTIONARY_ONLY") {
+        return node.domain_type !== "DOMAIN_HUB";
+      }
+      if (activeLens === "HUB_MAP_ONLY") {
+        return node.domain_type === "DOMAIN_HUB";
+      }
+      return true; // ALL
+    });
+
+    const validNodeIds = new Set(lensFilteredNodes.map((n) => n.id));
 
     const safeEdges = (Array.isArray(edges) ? edges : []).filter(
       (e) => validNodeIds.has(e.source_node_id) && validNodeIds.has(e.target_node_id)
@@ -415,9 +472,17 @@ export default function GraphCanvas({
 
     cy.batch(() => {
       const currentCyNodes = new Set(cy.nodes().map((n) => n.id()));
-      const incomingNodeIds = new Set(safeNodes.map((n) => n.id));
+      const incomingNodeIds = new Set(lensFilteredNodes.map((n) => n.id));
 
-      const nodesToAdd = safeNodes.filter((n) => !currentCyNodes.has(n.id));
+      // Remove nodes not matching active lens
+      cy.nodes().forEach((n) => {
+        if (!incomingNodeIds.has(n.id())) {
+          cy.remove(n);
+        }
+      });
+
+      // Add newly matching nodes
+      const nodesToAdd = lensFilteredNodes.filter((n) => !currentCyNodes.has(n.id));
       if (nodesToAdd.length > 0) {
         cy.add(
           nodesToAdd.map((node) => ({
@@ -440,14 +505,15 @@ export default function GraphCanvas({
         }).run();
       }
 
-      cy.nodes().forEach((n) => {
-        if (!incomingNodeIds.has(n.id())) {
-          cy.remove(n);
-        }
-      });
-
+      // Sync Edges
       const currentCyEdges = new Set(cy.edges().map((e) => e.id()));
       const incomingEdgeIds = new Set(safeEdges.map((e) => e.id));
+
+      cy.edges().forEach((e) => {
+        if (!incomingEdgeIds.has(e.id())) {
+          cy.remove(e);
+        }
+      });
 
       const edgesToAdd = safeEdges.filter((e) => !currentCyEdges.has(e.id));
       if (edgesToAdd.length > 0) {
@@ -463,14 +529,8 @@ export default function GraphCanvas({
           }))
         );
       }
-
-      cy.edges().forEach((e) => {
-        if (!incomingEdgeIds.has(e.id())) {
-          cy.remove(e);
-        }
-      });
     });
-  }, [nodes, edges]);
+  }, [nodes, edges, activeLens]);
 
   const handleCreateEdge = async (sourceId: string, targetId: string) => {
     const activeRelation = relationTypeRef.current;
@@ -502,12 +562,38 @@ export default function GraphCanvas({
 
   return (
     <div className="graph-container">
-      {/* Canvas Toolbar */}
+      {/* Canvas Toolbar with Layer Lens Toggles */}
       <div className="canvas-toolbar">
         <div className="toolbar-row top-row">
+          {/* Layer Filtering Lens Controls */}
+          <div className="lens-toggle-group">
+            <button
+              type="button"
+              className={`lens-btn ${activeLens === "ALL" ? "active" : ""}`}
+              onClick={() => handleLensChange("ALL")}
+            >
+              Full Web
+            </button>
+            <button
+              type="button"
+              className={`lens-btn ${activeLens === "DICTIONARY_ONLY" ? "active" : ""}`}
+              onClick={() => handleLensChange("DICTIONARY_ONLY")}
+            >
+              Dictionary Web
+            </button>
+            <button
+              type="button"
+              className={`lens-btn ${activeLens === "HUB_MAP_ONLY" ? "active" : ""}`}
+              onClick={() => handleLensChange("HUB_MAP_ONLY")}
+            >
+              Hub Map
+            </button>
+          </div>
+
           <span className="control-label">
             {sourceNodeId ? "Select target node to link..." : "Click to link"}
           </span>
+
           <div className="select-wrapper">
             <select
               value={relationType}
@@ -543,6 +629,7 @@ export default function GraphCanvas({
                 </option>
               </optgroup>
             </select>
+
             {sourceNodeId && (
               <button
                 type="button"
@@ -556,7 +643,7 @@ export default function GraphCanvas({
         </div>
         <div className="toolbar-row bottom-row">
           <span className="sub-control-label">
-            Double-click / Right-click / Shift-click to inspect
+            Double-click / Right-click / Shift-click to inspect • Single-click to spotlight connections
           </span>
         </div>
       </div>

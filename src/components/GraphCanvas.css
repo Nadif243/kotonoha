@@ -328,3 +328,36 @@
   color: #52525b;
   background-color: #121215;
 }
+
+/* Layer Lens Toggle Buttons */
+.lens-toggle-group {
+  display: flex;
+  background-color: #09090b;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.lens-btn {
+  background: transparent;
+  border: none;
+  color: #a1a1aa;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.lens-btn:hover {
+  color: #ffffff;
+  background-color: #18181b;
+}
+
+.lens-btn.active {
+  background-color: #27272a;
+  color: #a855f7;
+  font-weight: 600;
+}
