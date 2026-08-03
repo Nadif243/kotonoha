@@ -12,6 +12,7 @@ import {
   NoteItem,
 } from "../core/db";
 import "./GraphCanvas.css";
+import { speakJapanese } from "../core/tts";
 
 interface GraphCanvasProps {
   nodes: NodeEntity[];
@@ -718,6 +719,19 @@ export default function GraphCanvas({
                   {inspectedNode.priority_status || "REVIEW"}
                 </span>
               </div>
+            </div>
+
+            {/* Audio Pronunciation Block */}
+            <div className="sidebar-field tts-section">
+              <button
+                  type="button"
+                  className="btn-tts-play"
+                  onClick={() => speakJapanese(inspectedNode.reading || inspectedNode.label)}
+                  title="Listen to Japanese pronunciation"
+              >
+                  <span className="tts-icon">🔊</span>
+                  <span className="tts-text">Play Pronunciation</span>
+              </button>
             </div>
 
             {/* Note List Section */}

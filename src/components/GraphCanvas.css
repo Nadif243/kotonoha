@@ -457,3 +457,44 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* TTS Audio Pronunciation Button */
+.tts-section {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.btn-tts-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  color: #f4f4f5;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  width: fit-content;
+  transition: all 0.15s ease;
+}
+
+.btn-tts-play:hover {
+  background-color: #27272a;
+  border-color: #a855f7;
+  color: #a855f7;
+}
+
+.btn-tts-play:active {
+  transform: scale(0.97);
+}
+
+.tts-icon {
+  font-size: 0.9rem;
+}
+
+.tts-text {
+  font-size: 0.78rem;
+  font-weight: 500;
+}
