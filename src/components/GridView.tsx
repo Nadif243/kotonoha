@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { NodeEntity, PriorityStatus, DomainType } from "../types/database";
 import {
   insertNode,
@@ -9,6 +9,7 @@ import {
   insertEdge,
   updateNodeDetails,
   getAllEdges,
+  reorderNodes,
 } from "../core/db";
 import "./GridView.css";
 
@@ -19,7 +20,7 @@ interface GridViewProps {
 }
 
 type TabType = "LEXICAL" | "GRAMMAR" | "DOMAIN_HUB" | "DICT_INDEX";
-type SortColumn = "INDEX" | "PRIORITY" | "MEANING";
+type SortColumn = "INDEX" | "PRIORITY" | "MEANING" | "CUSTOM";
 type SortDirection = "ASC" | "DESC";
 
 export default function GridView({
@@ -27,7 +28,7 @@ export default function GridView({
   onNodesChange,
   onEdgesChange,
 }: GridViewProps) {
-  // Navigation Tab State (Default: LEXICAL)
+  // Navigation Tab State
   const [activeTab, setActiveTab] = useState<TabType>("LEXICAL");
 
   // Form input states
@@ -46,34 +47,135 @@ export default function GridView({
   const [editReading, setEditReading] = useState("");
   const [editMeaning, setEditMeaning] = useState("");
 
-  // Persistent Sorting State (Saved to localStorage)
-  const [sortColumn, setSortColumn] = useState<SortColumn>(() => {
-    return (
-      (localStorage.getItem("kotonoha_grid_sort_col") as SortColumn) || "INDEX"
-    );
-  });
-  const [sortDirection, setSortDirection] = useState<SortDirection>(() => {
-    return (
-      (localStorage.getItem("kotonoha_grid_sort_dir") as SortDirection) ||
-      "DESC"
-    );
-  });
+  // Active Sort Indicator
+  const [activeSortCol, setActiveSortCol] = useState<SortColumn>("CUSTOM");
+  const [sortDir, setSortDir] = useState<SortDirection>("ASC");
+
+  // Display Array State
+  const [displayNodes, setDisplayNodes] = useState<NodeEntity[]>(nodes);
+
+  // Drag & Drop Tracking
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const domainHubs = nodes.filter((n) => n.domain_type === "DOMAIN_HUB");
 
-  // Save sorting preference changes to localStorage
+  // Sync display list when node count changes
   useEffect(() => {
-    localStorage.setItem("kotonoha_grid_sort_col", sortColumn);
-    localStorage.setItem("kotonoha_grid_sort_dir", sortDirection);
-  }, [sortColumn, sortDirection]);
+    setDisplayNodes(nodes);
+  }, [nodes.length]);
 
-  // Handle Header Column Click for Sorting
-  const handleSortClick = (col: SortColumn) => {
-    if (sortColumn === col) {
-      setSortDirection((prev) => (prev === "ASC" ? "DESC" : "ASC"));
-    } else {
-      setSortColumn(col);
-      setSortDirection("ASC");
+  // Helper to get creation order sequence (#1, #2, etc)
+  const getOriginalCreationIndex = (nodeId: string): number => {
+    const sortedByOldest = [...nodes].sort((a, b) => a.id.localeCompare(b.id));
+    return sortedByOldest.findIndex((n) => n.id === nodeId) + 1;
+  };
+
+  // Header Click Sorting
+  const handleSortClick = async (col: SortColumn) => {
+    let newDir: SortDirection = "ASC";
+    if (activeSortCol === col) {
+      newDir = sortDir === "ASC" ? "DESC" : "ASC";
+    }
+
+    setActiveSortCol(col);
+    setSortDir(newDir);
+
+    let sortedList = [...displayNodes];
+
+    if (col === "PRIORITY") {
+      const priorityOrder: Record<PriorityStatus, number> = {
+        HARD: 1,
+        REVIEW: 2,
+        SETTLED: 3,
+      };
+      sortedList.sort((a, b) => {
+        const diff =
+          priorityOrder[a.priority_status || "REVIEW"] -
+          priorityOrder[b.priority_status || "REVIEW"];
+        return newDir === "ASC" ? diff : -diff;
+      });
+    } else if (col === "MEANING") {
+      sortedList.sort((a, b) => {
+        const comp = (a.meaning_en || "").localeCompare(b.meaning_en || "");
+        return newDir === "ASC" ? comp : -comp;
+      });
+    } else if (col === "INDEX") {
+      sortedList.sort((a, b) => {
+        const comp = a.id.localeCompare(b.id);
+        return newDir === "ASC" ? comp : -comp;
+      });
+    }
+
+    // Immediately update local UI list
+    setDisplayNodes(sortedList);
+
+    // Persist snapshot sequence to SQLite in background
+    try {
+      await reorderNodes(sortedList.map((n) => n.id));
+    } catch (err) {
+      console.error("Failed to save sort order:", err);
+    }
+  };
+
+  // POINTER EVENT REORDER HANDLERS
+  const handlePointerDown = (index: number) => {
+    setDraggingIndex(index);
+    setDragOverIndex(index);
+  };
+
+  const handlePointerEnter = (index: number) => {
+    if (draggingIndex !== null && draggingIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handlePointerUp = async () => {
+    if (
+      draggingIndex === null ||
+      dragOverIndex === null ||
+      draggingIndex === dragOverIndex
+    ) {
+      setDraggingIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    // Filter current tab's items
+    const currentTabFiltered = displayNodes.filter((node) => {
+      if (activeTab === "DICT_INDEX") return node.domain_type !== "DOMAIN_HUB";
+      return node.domain_type === activeTab;
+    });
+
+    // Swap position in array
+    const reorderedSubset = [...currentTabFiltered];
+    const [movedItem] = reorderedSubset.splice(draggingIndex, 1);
+    reorderedSubset.splice(dragOverIndex, 0, movedItem);
+
+    // Reset sort column indicator to CUSTOM
+    setActiveSortCol("CUSTOM");
+
+    // Merge reordered subset back with non-active tab items
+    const nonTabNodes = displayNodes.filter((node) => {
+      if (activeTab === "DICT_INDEX") return node.domain_type === "DOMAIN_HUB";
+      return node.domain_type !== activeTab;
+    });
+
+    const finalFullList = [...reorderedSubset, ...nonTabNodes];
+
+    // Update UI immediately
+    setDisplayNodes(finalFullList);
+
+    setDraggingIndex(null);
+    setDragOverIndex(null);
+
+    // Persist to database
+    try {
+      await reorderNodes(finalFullList.map((n) => n.id));
+      const updated = await getAllNodes();
+      onNodesChange(updated);
+    } catch (err) {
+      console.error("Failed to save reordered list:", err);
     }
   };
 
@@ -224,53 +326,16 @@ export default function GridView({
     }
   };
 
-  // Filter and Sort Processing Logic
-  const getProcessedNodes = () => {
-    let result = nodes.filter((node) => {
-      if (activeTab === "DICT_INDEX") {
-        return node.domain_type !== "DOMAIN_HUB";
-      }
-      return node.domain_type === activeTab;
-    });
-
-    result.sort((a, b) => {
-      if (sortColumn === "INDEX") {
-        const idA = a.id;
-        const idB = b.id;
-        return sortDirection === "ASC"
-          ? idA.localeCompare(idB)
-          : idB.localeCompare(idA);
-      }
-
-      if (sortColumn === "PRIORITY") {
-        const priorityOrder: Record<PriorityStatus, number> = {
-          HARD: 1,
-          REVIEW: 2,
-          SETTLED: 3,
-        };
-        const pA = priorityOrder[a.priority_status || "REVIEW"];
-        const pB = priorityOrder[b.priority_status || "REVIEW"];
-        return sortDirection === "ASC" ? pA - pB : pB - pA;
-      }
-
-      if (sortColumn === "MEANING") {
-        const mA = (a.meaning_en || "").toLowerCase();
-        const mB = (b.meaning_en || "").toLowerCase();
-        return sortDirection === "ASC"
-          ? mA.localeCompare(mB)
-          : mB.localeCompare(mA);
-      }
-
-      return 0;
-    });
-
-    return result;
-  };
-
-  const processedNodes = getProcessedNodes();
+  // Active Filtered Subset Nodes List
+  const filteredNodes = displayNodes.filter((node) => {
+    if (activeTab === "DICT_INDEX") {
+      return node.domain_type !== "DOMAIN_HUB";
+    }
+    return node.domain_type === activeTab;
+  });
 
   return (
-    <div className="grid-workbench">
+    <div className="grid-workbench" onPointerUp={handlePointerUp}>
       {/* Category Navigation Tabs */}
       <div className="view-tabs">
         <button
@@ -303,7 +368,7 @@ export default function GridView({
         </button>
       </div>
 
-      {/* Adaptive Entry Toolbar with Tooltips */}
+      {/* Adaptive Entry Toolbar */}
       <form className="entry-form" onSubmit={handleAddNode}>
         <div className="input-group" title="Entity domain category">
           <select
@@ -431,185 +496,200 @@ export default function GridView({
       {/* Duplicate Warning Banner */}
       {errorMsg && <div className="error-banner">{errorMsg}</div>}
 
-      {/* Dynamic Data Table */}
-      <div className="table-container">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th
-                className="sortable-th col-seq"
-                onClick={() => handleSortClick("INDEX")}
-                title="Click to sort by entry creation order"
+      {/* Grid Object Container */}
+      <div className="grid-table-container">
+        {/* Table Header */}
+        <div className="grid-table-header">
+          <div
+            className={`grid-cell cell-seq sortable ${
+              activeSortCol === "INDEX" ? "active-sort" : ""
+            }`}
+            onClick={() => handleSortClick("INDEX")}
+          >
+            # <span className="sort-hint">{activeSortCol === "INDEX" ? (sortDir === "ASC" ? "▲" : "▼") : "↕"}</span>
+          </div>
+
+          <div className="grid-cell cell-label">
+            {activeTab === "DOMAIN_HUB" ? "Hub Title" : "Entity / Word"}
+          </div>
+
+          {activeTab !== "DOMAIN_HUB" && (
+            <div className="grid-cell cell-reading">Reading</div>
+          )}
+
+          {activeTab !== "DOMAIN_HUB" && (
+            <div
+              className={`grid-cell cell-meaning sortable ${
+                activeSortCol === "MEANING" ? "active-sort" : ""
+              }`}
+              onClick={() => handleSortClick("MEANING")}
+            >
+              Meaning / Description{" "}
+              <span className="sort-hint">{activeSortCol === "MEANING" ? (sortDir === "ASC" ? "▲" : "▼") : "↕"}</span>
+            </div>
+          )}
+
+          {activeTab === "DICT_INDEX" && (
+            <div className="grid-cell cell-type">Type</div>
+          )}
+
+          {activeTab !== "DOMAIN_HUB" && (
+            <div
+              className={`grid-cell cell-priority sortable ${
+                activeSortCol === "PRIORITY" ? "active-sort" : ""
+              }`}
+              onClick={() => handleSortClick("PRIORITY")}
+            >
+              Priority{" "}
+              <span className="sort-hint">{activeSortCol === "PRIORITY" ? (sortDir === "ASC" ? "▲" : "▼") : "↕"}</span>
+            </div>
+          )}
+
+          <div className="grid-cell cell-actions">Actions</div>
+        </div>
+
+        {/* Table Body */}
+        <div className="grid-table-body">
+          {filteredNodes.length === 0 ? (
+            <div className="empty-grid-row">
+              No {activeTab.toLowerCase().replace("_", " ")} entries found.
+            </div>
+          ) : (
+            filteredNodes.map((node, index) => (
+              <div
+                key={node.id}
+                className={`grid-table-row ${node.priority_status.toLowerCase()} ${
+                  draggingIndex === index ? "is-holding" : ""
+                } ${
+                  dragOverIndex === index && draggingIndex !== index
+                    ? "is-drag-over"
+                    : ""
+                }`}
+                onPointerEnter={() => handlePointerEnter(index)}
               >
-                #
-                <span
-                  className={`sort-arrow ${
-                    sortColumn === "INDEX" ? "active" : "inactive"
-                  }`}
+                {/* Drag Handle Grip (Triggers row hold) */}
+                <div
+                  className="grid-cell cell-seq drag-handle"
+                  onPointerDown={() => handlePointerDown(index)}
+                  title="Click & hold to move row"
                 >
-                  {sortDirection === "ASC" ? "▲" : "▼"}
-                </span>
-              </th>
+                  <span className="drag-icon">⋮⋮</span> {index + 1}
+                </div>
 
-              <th className="col-label">
-                {activeTab === "DOMAIN_HUB" ? "Hub Title" : "Entity / Word"}
-              </th>
+                {/* Word Label + Age Badge */}
+                <div className="grid-cell cell-label">
+                  {editingNode?.id === node.id ? (
+                    <input
+                      type="text"
+                      value={editLabel}
+                      onChange={(e) => setEditLabel(e.target.value)}
+                      className="inline-edit-input"
+                    />
+                  ) : (
+                    <div className="label-wrapper">
+                      <span className="word-text">{node.label}</span>
+                      <span className="creation-age-badge">
+                        #{getOriginalCreationIndex(node.id)}
+                      </span>
+                    </div>
+                  )}
+                </div>
 
-              {activeTab !== "DOMAIN_HUB" && <th className="col-reading">Reading</th>}
-
-              {activeTab !== "DOMAIN_HUB" && (
-                <th
-                  className="sortable-th col-meaning"
-                  onClick={() => handleSortClick("MEANING")}
-                  title="Click to sort alphabetically by meaning"
-                >
-                  Meaning / Description
-                  <span
-                    className={`sort-arrow ${
-                      sortColumn === "MEANING" ? "active" : "inactive"
-                    }`}
-                  >
-                    {sortDirection === "ASC" ? "▲" : "▼"}
-                  </span>
-                </th>
-              )}
-
-              {activeTab === "DICT_INDEX" && <th className="col-type">Type</th>}
-
-              {activeTab !== "DOMAIN_HUB" && (
-                <th
-                  className="sortable-th col-priority"
-                  onClick={() => handleSortClick("PRIORITY")}
-                  title="Click to group by learning priority (Hard -> Review -> Settled)"
-                >
-                  Priority
-                  <span
-                    className={`sort-arrow ${
-                      sortColumn === "PRIORITY" ? "active" : "inactive"
-                    }`}
-                  >
-                    {sortDirection === "ASC" ? "▲" : "▼"}
-                  </span>
-                </th>
-              )}
-
-              <th className="col-actions">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {processedNodes.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="empty-row">
-                  No {activeTab.toLowerCase().replace("_", " ")} entries found.
-                </td>
-              </tr>
-            ) : (
-              processedNodes.map((node, index) => (
-                <tr key={node.id} className={node.priority_status.toLowerCase()}>
-                  <td className="col-seq">
-                    {sortDirection === "DESC" && sortColumn === "INDEX"
-                      ? processedNodes.length - index
-                      : index + 1}
-                  </td>
-                  <td className="col-label">
+                {/* Reading */}
+                {activeTab !== "DOMAIN_HUB" && (
+                  <div className="grid-cell cell-reading">
                     {editingNode?.id === node.id ? (
                       <input
                         type="text"
-                        value={editLabel}
-                        onChange={(e) => setEditLabel(e.target.value)}
+                        value={editReading}
+                        onChange={(e) => setEditReading(e.target.value)}
                         className="inline-edit-input"
                       />
                     ) : (
-                      node.label
+                      node.reading || "—"
                     )}
-                  </td>
-                  {activeTab !== "DOMAIN_HUB" && (
-                    <td className="col-reading">
-                      {editingNode?.id === node.id ? (
-                        <input
-                          type="text"
-                          value={editReading}
-                          onChange={(e) => setEditReading(e.target.value)}
-                          className="inline-edit-input"
-                        />
-                      ) : (
-                        node.reading || "—"
-                      )}
-                    </td>
-                  )}
-                  {activeTab !== "DOMAIN_HUB" && (
-                    <td className="col-meaning">
-                      {editingNode?.id === node.id ? (
-                        <input
-                          type="text"
-                          value={editMeaning}
-                          onChange={(e) => setEditMeaning(e.target.value)}
-                          className="inline-edit-input"
-                        />
-                      ) : (
-                        node.meaning_en || "—"
-                      )}
-                    </td>
-                  )}
-                  {activeTab === "DICT_INDEX" && (
-                    <td>
-                      <span className={`type-badge ${node.domain_type.toLowerCase()}`}>
-                        {node.domain_type}
-                      </span>
-                    </td>
-                  )}
-                  {activeTab !== "DOMAIN_HUB" && (
-                    <td>
+                  </div>
+                )}
+
+                {/* Meaning */}
+                {activeTab !== "DOMAIN_HUB" && (
+                  <div className="grid-cell cell-meaning">
+                    {editingNode?.id === node.id ? (
+                      <input
+                        type="text"
+                        value={editMeaning}
+                        onChange={(e) => setEditMeaning(e.target.value)}
+                        className="inline-edit-input"
+                      />
+                    ) : (
+                      node.meaning_en || "—"
+                    )}
+                  </div>
+                )}
+
+                {/* Type Badge */}
+                {activeTab === "DICT_INDEX" && (
+                  <div className="grid-cell cell-type">
+                    <span className={`type-badge ${node.domain_type.toLowerCase()}`}>
+                      {node.domain_type}
+                    </span>
+                  </div>
+                )}
+
+                {/* Priority Badge */}
+                {activeTab !== "DOMAIN_HUB" && (
+                  <div className="grid-cell cell-priority">
+                    <button
+                      type="button"
+                      className={`priority-badge clickable ${node.priority_status.toLowerCase()}`}
+                      onClick={() => handleCyclePriority(node)}
+                      title="Click to toggle priority status"
+                    >
+                      {node.priority_status}
+                    </button>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="grid-cell cell-actions">
+                  {editingNode?.id === node.id ? (
+                    <div className="edit-btn-group">
+                      <button type="button" className="btn-save" onClick={handleSaveEdit}>
+                        Save
+                      </button>
                       <button
                         type="button"
-                        className={`priority-badge clickable ${node.priority_status.toLowerCase()}`}
-                        onClick={() => handleCyclePriority(node)}
-                        title="Click to toggle priority status"
+                        className="btn-cancel-edit"
+                        onClick={() => setEditingNode(null)}
                       >
-                        {node.priority_status}
+                        Cancel
                       </button>
-                    </td>
+                    </div>
+                  ) : (
+                    <div className="action-btn-group">
+                      <button
+                        type="button"
+                        className="btn-edit"
+                        onClick={() => startEditing(node)}
+                        title="Edit entry details"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-delete"
+                        onClick={() => handleDelete(node.id)}
+                        title="Delete entry"
+                      >
+                        ×
+                      </button>
+                    </div>
                   )}
-                  <td className="col-actions">
-                    {editingNode?.id === node.id ? (
-                      <div className="edit-btn-group">
-                        <button type="button" className="btn-save" onClick={handleSaveEdit}>
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-cancel-edit"
-                          onClick={() => setEditingNode(null)}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="action-btn-group">
-                        <button
-                          type="button"
-                          className="btn-edit"
-                          onClick={() => startEditing(node)}
-                          title="Edit entry details"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-delete"
-                          onClick={() => handleDelete(node.id)}
-                          title="Delete entry"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );

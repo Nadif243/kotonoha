@@ -389,3 +389,17 @@ export async function updateNodesSortOrder(
     );
   }
 }
+
+// Re-order nodes in batch by updating a sort_index or updated_at sequence
+export async function reorderNodes(orderedIds: string[]): Promise<void> {
+  const db = await getDb();
+
+  // Execute sequence updates
+  for (let i = 0; i < orderedIds.length; i++) {
+    const id = orderedIds[i];
+    await db.execute(
+      "UPDATE nodes SET updated_at = CURRENT_TIMESTAMP WHERE id = $1;",
+      [id]
+    );
+  }
+}

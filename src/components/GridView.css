@@ -463,3 +463,283 @@
 .sort-arrow.inactive {
   visibility: hidden; /* Takes up exact same width, but stays invisible */
 }
+
+/* Drag Handle & Row States */
+tr[draggable="true"] {
+  cursor: grab;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+tr[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+tr.is-dragging {
+  opacity: 0.35;
+  background-color: #27272a !important;
+  border: 1px dashed #a855f7;
+}
+
+.drag-handle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.drag-icon {
+  font-size: 0.75rem;
+  color: #52525b;
+  cursor: grab;
+}
+
+tr:hover .drag-icon {
+  color: #a855f7;
+}
+
+.sort-hint {
+  font-size: 0.7rem;
+  color: #71717a;
+  margin-left: 4px;
+}
+
+/* Header Sort Highlighting */
+.sortable-th .sort-hint {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 0.75rem;
+  color: #52525b;
+  transition: color 0.15s ease;
+}
+
+.sortable-th.active-sort {
+  color: #a855f7;
+  font-weight: 700;
+}
+
+.sortable-th.active-sort .sort-hint {
+  color: #a855f7;
+}
+
+/* Drag Handle Styling */
+tr[draggable="true"] {
+  cursor: grab;
+}
+
+tr[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+tr.is-dragging {
+  opacity: 0.3;
+  background-color: #27272a !important;
+}
+
+.drag-icon {
+  font-size: 0.75rem;
+  color: #52525b;
+  user-select: none;
+}
+
+tr:hover .drag-icon {
+  color: #a855f7;
+}
+
+/* Div-Based Grid Table Layout */
+.grid-table-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background-color: #09090b;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.grid-table-header {
+  display: flex;
+  align-items: center;
+  background-color: #18181b;
+  border-bottom: 1px solid #27272a;
+  font-weight: 600;
+  color: #a1a1aa;
+  font-size: 0.8rem;
+  user-select: none;
+}
+
+.grid-table-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #18181b;
+  background-color: #09090b;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+  cursor: grab;
+}
+
+.grid-table-row:hover {
+  background-color: #121215;
+}
+
+.grid-table-row:active {
+  cursor: grabbing;
+}
+
+.grid-table-row.is-dragging {
+  opacity: 0.25;
+  background-color: #27272a;
+  border: 1px dashed #a855f7;
+}
+
+/* Rigid Column Width Alignment */
+.grid-cell {
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.85rem;
+}
+
+.cell-seq {
+  width: 60px;
+  min-width: 60px;
+  justify-content: flex-start;
+  gap: 6px;
+  color: #71717a;
+}
+
+.cell-label {
+  flex: 2;
+  min-width: 180px;
+}
+
+.cell-reading {
+  flex: 2;
+  min-width: 150px;
+}
+
+.cell-meaning {
+  flex: 3;
+  min-width: 220px;
+}
+
+.cell-type {
+  width: 110px;
+  min-width: 110px;
+}
+
+.cell-priority {
+  width: 110px;
+  min-width: 110px;
+}
+
+.cell-actions {
+  width: 100px;
+  min-width: 100px;
+  justify-content: center;
+}
+
+/* Sorting Header Highlighting */
+.grid-cell.sortable {
+  cursor: pointer;
+}
+
+.grid-cell.sortable:hover {
+  color: #a855f7;
+}
+
+.grid-cell.active-sort {
+  color: #a855f7;
+  font-weight: 700;
+}
+
+.sort-hint {
+  margin-left: 4px;
+  font-size: 0.75rem;
+}
+
+/* Kanji Word + Creation Age Badge Styling */
+.label-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.word-text {
+  font-weight: 500;
+  color: #f4f4f5;
+}
+
+.creation-age-badge {
+  font-size: 0.68rem;
+  color: #71717a;
+  background-color: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: monospace;
+  margin-left: 8px;
+}
+
+/* Drag Icon Visual */
+.drag-icon {
+  font-size: 0.75rem;
+  color: #3f3f46;
+  user-select: none;
+}
+
+.grid-table-row:hover .drag-icon {
+  color: #a855f7;
+}
+
+.empty-grid-row {
+  padding: 24px;
+  text-align: center;
+  color: #71717a;
+  font-size: 0.85rem;
+}
+
+/* Drag & Drop Visual Indication */
+.grid-table-row[draggable="true"] {
+  cursor: grab;
+  user-select: none;
+}
+
+.grid-table-row[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.grid-table-row.is-dragging {
+  opacity: 0.3;
+  background-color: #27272a !important;
+  border-left: 3px solid #a855f7;
+}
+
+/* Cursor override to force pointer/grab in WebKit */
+.grid-cell {
+  user-select: none;
+}
+
+/* Drag Handle Grip */
+.drag-handle {
+  cursor: grab;
+  user-select: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Row states during pointer move */
+.grid-table-row.is-holding {
+  opacity: 0.35;
+  background-color: #27272a !important;
+  border-left: 3px solid #a855f7;
+}
+
+.grid-table-row.is-drag-over {
+  border-top: 2px solid #a855f7;
+  background-color: #18181b;
+}
