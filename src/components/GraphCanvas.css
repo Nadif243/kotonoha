@@ -498,3 +498,154 @@
   font-size: 0.78rem;
   font-weight: 500;
 }
+
+/* Metadata Section Styling */
+.metadata-section {
+  margin-top: 12px;
+  border-top: 1px solid #27272a;
+  padding-top: 12px;
+}
+
+.metadata-card {
+  background-color: #09090b;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #e4e4e7;
+}
+
+.meta-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: #a1a1aa;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #71717a;
+}
+
+.status-dot.online {
+  background-color: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+}
+
+/* Multi-Kanji Detailed Cards */
+.metadata-container {
+  margin-top: 6px;
+}
+
+.meta-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #09090b;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 0.78rem;
+  color: #a1a1aa;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.success { background-color: #10b981; box-shadow: 0 0 6px rgba(16, 185, 129, 0.4); }
+.status-dot.warning { background-color: #f59e0b; }
+.status-dot.pending { background-color: #71717a; }
+
+.kanji-breakdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kanji-item-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: #09090b;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.kanji-main-badge {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #f4f4f5;
+  line-height: 1;
+}
+
+.kanji-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kanji-meta-row {
+  display: flex;
+  gap: 6px;
+}
+
+.kanji-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.kanji-tag.jlpt {
+  background-color: #2e1065;
+  color: #c084fc;
+  border: 1px solid #581c87;
+}
+
+.kanji-tag.strokes {
+  background-color: #18181b;
+  color: #a1a1aa;
+  border: 1px solid #27272a;
+}
+
+.kanji-meanings {
+  font-size: 0.75rem;
+  color: #d4d4d8;
+  text-transform: capitalize;
+}
+
+.meta-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  color: #71717a;
+  margin-top: 2px;
+}
+
+.status-dot.pending.pulse {
+  animation: pulse-glow 1.2s infinite ease-in-out;
+}
+
+@keyframes pulse-glow {
+  0% { opacity: 0.3; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.2); background-color: #a855f7; }
+  100% { opacity: 0.3; transform: scale(0.9); }
+}

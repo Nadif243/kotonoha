@@ -12,7 +12,11 @@ import {
   NoteItem,
 } from "../core/db";
 import "./GraphCanvas.css";
-import { speakJapanese } from "../core/tts";
+import { speakJapanese } from "../core/tts";import {
+  enrichAndCacheNode,
+  EnrichmentPayload,
+  IndividualKanjiInfo,
+} from "../core/enrichment";
 
 interface GraphCanvasProps {
   nodes: NodeEntity[];
@@ -115,13 +119,25 @@ export default function GraphCanvas({
     setSourceNode(null);
   };
 
-  const openSidebarForNode = (nodeId: string) => {
+  const openSidebarForNode = async (nodeId: string) => {
     const targetNode = nodesRef.current.find((n) => n.id === nodeId);
     if (targetNode) {
       setInspectedNode(targetNode);
       setNoteList(parseNodeNotes(targetNode.attributes));
       setNewNoteInput("");
       setSourceNode(null); // Clear highlight ring
+
+      // Auto-enrich in background if online & not yet cached
+      try {
+        const enrichedNode = await enrichAndCacheNode(nodeId);
+        if (enrichedNode) {
+          setInspectedNode(enrichedNode);
+          const updatedNodes = await getAllNodes();
+          onNodesChange(updatedNodes);
+        }
+        } catch (err) {
+          console.error("Enrichment error:", err);
+        }
     }
   };
 
@@ -780,6 +796,62 @@ export default function GraphCanvas({
                 </button>
               </div>
             </div>
+
+            {/* Helper at top of render or inside component */}
+            {(() => {
+              let parsedAttrs: any = {};
+              try {
+                parsedAttrs = inspectedNode.attributes ? JSON.parse(inspectedNode.attributes) : {};
+              } catch {
+                parsedAttrs = {};
+              }
+
+              const enrichmentData: EnrichmentPayload | undefined = parsedAttrs.enrichment_data;
+
+              return (
+                <div className="sidebar-field metadata-section">
+                  <span className="field-label">Linguistic Metadata (Auto-Enriched)</span>
+
+                  <div className="metadata-container">
+                    {!enrichmentData ? (
+                      /* Offline / Pending State */
+                      <div className="meta-card offline">
+                        <span className="status-dot pending" />
+                        <span className="status-msg">Fetching online metadata...</span>
+                      </div>
+                    ) : enrichmentData.status === "NOT_FOUND" ? (
+                      /* Not Found / No Kanji State */
+                      <div className="meta-card not-found">
+                        <span className="status-dot warning" />
+                        <span className="status-msg">No Kanji or dictionary match found for this entry.</span>
+                      </div>
+                    ) : (
+                      /* Success: Detailed Kanji Breakdown List */
+                      <div className="kanji-breakdown-list">
+                        {enrichmentData.kanji_list.map((item: IndividualKanjiInfo) => (
+                          <div key={item.kanji} className="kanji-item-card">
+                            <div className="kanji-main-badge">{item.kanji}</div>
+                            <div className="kanji-details">
+                              <div className="kanji-meta-row">
+                                <span className="kanji-tag jlpt">{item.jlpt}</span>
+                                <span className="kanji-tag strokes">{item.stroke_count} strokes</span>
+                              </div>
+                              <div className="kanji-meanings">
+                                 {item.meanings.length > 0 ? item.meanings.join(", ") : "No meaning"}
+                              </div>
+                            </div>
+                        </div>
+                        ))}
+                        <div className="meta-card-footer">
+                          <span className="status-dot success" />
+                          <span>Enriched & Cached Locally</span>
+                        </div>
+                    </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
