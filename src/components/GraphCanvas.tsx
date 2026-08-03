@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import cytoscape, { Core } from "cytoscape";
 import { NodeEntity, EdgeEntity } from "../types/database";
-import { insertEdge, deleteEdge, checkEdgeConflict, getAllEdges, updateNodeContext, getAllNodes } from "../core/db";
+import {
+  insertEdge,
+  deleteEdge,
+  checkEdgeConflict,
+  getAllEdges,
+  getAllNodes,
+  parseNodeNotes,
+  updateNodeNotes,
+  NoteItem,
+} from "../core/db";
 import "./GraphCanvas.css";
 
 interface GraphCanvasProps {
@@ -35,9 +44,10 @@ export default function GraphCanvas({
   const [activeLens, setActiveLens] = useState<LayerLens>("ALL");
   const [isCanvasReady, setIsCanvasReady] = useState<boolean>(false);
 
-  // Right Sidebar State
+  // Right Sidebar State (Multi-Note List)
   const [inspectedNode, setInspectedNode] = useState<NodeEntity | null>(null);
-  const [editedContext, setEditedContext] = useState<string>("");
+  const [noteList, setNoteList] = useState<NoteItem[]>([]);
+  const [newNoteInput, setNewNoteInput] = useState<string>("");
   const [isSavingNote, setIsSavingNote] = useState<boolean>(false);
 
   // Double-tap tracker
@@ -104,49 +114,55 @@ export default function GraphCanvas({
     setSourceNode(null);
   };
 
-  const getPersonalContext = (attributesStr?: string): string => {
-    if (!attributesStr) return "";
-    try {
-      const parsed = JSON.parse(attributesStr);
-      return parsed.personal_context || "";
-    } catch {
-      return "";
-    }
-  };
-
   const openSidebarForNode = (nodeId: string) => {
     const targetNode = nodesRef.current.find((n) => n.id === nodeId);
     if (targetNode) {
       setInspectedNode(targetNode);
-      setEditedContext(getPersonalContext(targetNode.attributes));
+      setNoteList(parseNodeNotes(targetNode.attributes));
+      setNewNoteInput("");
       setSourceNode(null); // Clear highlight ring
     }
   };
 
-  const handleSaveNotes = async () => {
-    if (!inspectedNode) return;
+  const handleAddNote = async () => {
+    if (!inspectedNode || !newNoteInput.trim()) return;
     setIsSavingNote(true);
 
+    const createdNote: NoteItem = {
+      id: `note_${Date.now()}`,
+      text: newNoteInput.trim(),
+      created_at: new Date().toISOString(),
+    };
+
+    const updatedNotes = [...noteList, createdNote];
+
     try {
-      await updateNodeContext(inspectedNode.id, editedContext);
+      await updateNodeNotes(inspectedNode.id, updatedNotes);
+      setNoteList(updatedNotes);
+      setNewNoteInput("");
+
       const updatedNodes = await getAllNodes();
       onNodesChange(updatedNodes);
-
-      setInspectedNode((prev) =>
-        prev
-          ? {
-              ...prev,
-              attributes: JSON.stringify({
-                personal_context: editedContext,
-                example_sentences: [],
-              }),
-            }
-          : null
-      );
     } catch (err) {
-      console.error("Failed to update context note:", err);
+      console.error("Failed to add note:", err);
     } finally {
       setIsSavingNote(false);
+    }
+  };
+
+  const handleDeleteNote = async (noteIdToDelete: string) => {
+    if (!inspectedNode) return;
+
+    const updatedNotes = noteList.filter((n) => n.id !== noteIdToDelete);
+
+    try {
+      await updateNodeNotes(inspectedNode.id, updatedNotes);
+      setNoteList(updatedNotes);
+
+      const updatedNodes = await getAllNodes();
+      onNodesChange(updatedNodes);
+    } catch (err) {
+      console.error("Failed to delete note:", err);
     }
   };
 
@@ -351,15 +367,11 @@ export default function GraphCanvas({
         // Spotlight Dimming Rules
         {
           selector: ".dimmed",
-          style: {
-            opacity: 0.15,
-          },
+          style: { opacity: 0.15 },
         },
         {
           selector: "node.spotlight",
-          style: {
-            opacity: 1,
-          },
+          style: { opacity: 1 },
         },
       ],
     });
@@ -562,7 +574,7 @@ export default function GraphCanvas({
 
   return (
     <div className="graph-container">
-      {/* Canvas Toolbar with Layer Lens Toggles */}
+      {/* Canvas Toolbar */}
       <div className="canvas-toolbar">
         <div className="toolbar-row top-row">
           {/* Layer Filtering Lens Controls */}
@@ -708,22 +720,51 @@ export default function GraphCanvas({
               </div>
             </div>
 
+            {/* Note List Section */}
             <div className="sidebar-field">
-              <span className="field-label">Personal Context / Memory Note</span>
-              <textarea
-                className="context-textarea"
-                placeholder="Write memory anchors, media contexts, or usage notes..."
-                value={editedContext}
-                onChange={(e) => setEditedContext(e.target.value)}
-              />
-              <button
-                type="button"
-                className="btn-save-note"
-                onClick={handleSaveNotes}
-                disabled={isSavingNote}
-              >
-                {isSavingNote ? "Saving..." : "Save Note"}
-              </button>
+              <span className="field-label">Personal Memory Notes</span>
+
+              <div className="notes-list">
+                {noteList.length === 0 ? (
+                  <div className="no-notes-msg">No memory notes added yet.</div>
+                ) : (
+                  noteList.map((note) => (
+                    <div key={note.id} className="note-card">
+                      <span className="note-text">{note.text}</span>
+                      <button
+                        type="button"
+                        className="btn-delete-note"
+                        onClick={() => handleDeleteNote(note.id)}
+                        title="Delete note"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Inline Add Note Input */}
+              <div className="add-note-box">
+                <input
+                  type="text"
+                  className="add-note-input"
+                  placeholder="Write a context note..."
+                  value={newNoteInput}
+                  onChange={(e) => setNewNoteInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddNote();
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn-add-note"
+                  onClick={handleAddNote}
+                  disabled={isSavingNote || !newNoteInput.trim()}
+                >
+                  Add
+                </button>
+              </div>
             </div>
           </div>
         </div>

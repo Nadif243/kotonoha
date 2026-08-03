@@ -361,3 +361,99 @@
   color: #a855f7;
   font-weight: 600;
 }
+
+/* Sidebar Note List Layout */
+.notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 6px;
+  margin-bottom: 8px;
+  padding-right: 4px;
+}
+
+.no-notes-msg {
+  font-size: 0.78rem;
+  color: #71717a;
+  font-style: italic;
+  padding: 4px 0;
+}
+
+.note-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  background-color: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  padding: 8px 10px;
+  gap: 8px;
+}
+
+.note-text {
+  font-size: 0.8rem;
+  color: #e4e4e7;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.btn-delete-note {
+  background: transparent;
+  border: none;
+  color: #71717a;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.btn-delete-note:hover {
+  color: #ef4444;
+}
+
+/* Add Note Input Bar */
+.add-note-box {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.add-note-input {
+  flex: 1;
+  background-color: #09090b;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  color: #f4f4f5;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.add-note-input:focus {
+  border-color: #a855f7;
+}
+
+.btn-add-note {
+  background-color: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  color: #f4f4f5;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-add-note:hover:not(:disabled) {
+  background-color: #a855f7;
+  border-color: #a855f7;
+  color: #ffffff;
+}
+
+.btn-add-note:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

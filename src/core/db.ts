@@ -299,3 +299,78 @@ export async function updateNodeDetails(
     [label, reading || null, meaning_en || null, id]
   );
 }
+
+// Interfaces for JSON attributes
+export interface NoteItem {
+  id: string;
+  text: string;
+  created_at: string;
+}
+
+export interface NodeAttributes {
+  notes?: NoteItem[];
+  personal_context?: string; // Legacy fallback
+  enriched?: boolean;
+  jlpt_level?: string;
+  radicals?: string[];
+  pitch_accent?: string;
+}
+
+// Helper to safely extract notes array (handles legacy single string conversion)
+export function parseNodeNotes(attributesStr?: string): NoteItem[] {
+  if (!attributesStr) return [];
+  try {
+    const parsed: NodeAttributes = JSON.parse(attributesStr);
+    if (Array.isArray(parsed.notes)) {
+      return parsed.notes;
+    }
+    // Backward compatibility for legacy single-string personal_context
+    if (parsed.personal_context && parsed.personal_context.trim() !== "") {
+      return [
+        {
+          id: `legacy_${Date.now()}`,
+          text: parsed.personal_context,
+          created_at: new Date().toISOString(),
+        },
+      ];
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+// Function to update the notes array in a node's attributes JSON
+export async function updateNodeNotes(
+  id: string,
+  notes: NoteItem[]
+): Promise<void> {
+  const db = await getDb();
+
+  // Fetch current attributes to preserve other metadata fields
+  const currentRes = await db.select<NodeEntity[]>(
+    "SELECT attributes FROM nodes WHERE id = $1;",
+    [id]
+  );
+
+  let existingAttrs: NodeAttributes = {};
+  if (currentRes.length > 0 && currentRes[0].attributes) {
+    try {
+      existingAttrs = JSON.parse(currentRes[0].attributes);
+    } catch {
+      existingAttrs = {};
+    }
+  }
+
+  const updatedAttrs: NodeAttributes = {
+    ...existingAttrs,
+    notes: notes,
+    // Clear legacy string once migrated to array
+    personal_context: "",
+  };
+
+  await db.execute(
+    "UPDATE nodes SET attributes = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2;",
+    [JSON.stringify(updatedAttrs), id]
+  );
+}
