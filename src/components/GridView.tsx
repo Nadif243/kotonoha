@@ -18,6 +18,7 @@ interface GridViewProps {
   nodes: NodeEntity[];
   onNodesChange: (nodes: NodeEntity[]) => void;
   onEdgesChange?: (edges: any[]) => void;
+  onInspectNode?: (node: NodeEntity) => void;
 }
 
 type TabType = "LEXICAL" | "GRAMMAR" | "DOMAIN_HUB" | "DICT_INDEX";
@@ -28,6 +29,7 @@ export default function GridView({
   nodes,
   onNodesChange,
   onEdgesChange,
+  onInspectNode,
 }: GridViewProps) {
   // Navigation Tab State
   const [activeTab, setActiveTab] = useState<TabType>("LEXICAL");
@@ -746,7 +748,13 @@ export default function GridView({
           target={contextMenuTarget}
           onClose={() => setContextMenuTarget(null)}
           onInspect={(node) => {
-            console.log("Inspect triggered for:", node.label);
+            console.log("1. ContextMenu triggered inspect for:", node.label);
+            if (onInspectNode) {
+                console.log("2. Calling onInspectNode callback!");
+                onInspectNode(node);
+            } else {
+                console.error("2. ERROR: onInspectNode prop is UNDEFINED in GridView!");
+            }
           }}
           onQuickEdit={(node) => startEditing(node)}
           onCyclePriority={(node) => handleCyclePriority(node)}

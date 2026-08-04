@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import "./App.css";
-import { getDb, getAllNodes, getAllEdges } from "./core/db";
 import { NodeEntity, EdgeEntity } from "./types/database";
+import { getDb, getAllNodes, getAllEdges } from "./core/db";
 import GridView from "./components/GridView";
 import GraphCanvas from "./components/GraphCanvas";
+import InspectorDrawer from "./components/InspectorDrawer";
+import "./App.css";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"grid" | "graph">("grid");
@@ -11,7 +12,10 @@ export default function App() {
   const [nodes, setNodes] = useState<NodeEntity[]>([]);
   const [edges, setEdges] = useState<EdgeEntity[]>([]);
 
-  // 1. Effect Khusus Database Initialization
+  // Shared Inspector Drawer State
+  const [inspectedNode, setInspectedNode] = useState<NodeEntity | null>(null);
+
+  // Database Initialization Effect
   useEffect(() => {
     async function init() {
       try {
@@ -28,7 +32,7 @@ export default function App() {
     init();
   }, []);
 
-  // 2. Effect Khusus Global Window Listener (Context Menu Guardrail)
+  // Global Context Menu Guardrail Effect
   useEffect(() => {
     const disableNativeContextMenu = (e: MouseEvent) => {
       e.preventDefault();
@@ -40,6 +44,12 @@ export default function App() {
       window.removeEventListener("contextmenu", disableNativeContextMenu);
     };
   }, []);
+
+  // Handler switch to graph & focus specific node
+  const handleSwitchToGraphAndFocus = (nodeId: string) => {
+    setActiveTab("graph");
+    setInspectedNode(null); // Optional: close drawer or keep focused node
+  };
 
   return (
     <div className="app-container">
@@ -53,16 +63,16 @@ export default function App() {
         </div>
         <div className="view-toggle">
           <button
-            className={activeTab === "grid" ? "active" : ""}
+            className={`switch-btn ${activeTab === "grid" ? "active" : ""}`}
             onClick={() => setActiveTab("grid")}
           >
-            Grid View
+            Grid Workbench
           </button>
           <button
-            className={activeTab === "graph" ? "active" : ""}
+            className={`switch-btn ${activeTab === "graph" ? "active" : ""}`}
             onClick={() => setActiveTab("graph")}
           >
-            Graph Canvas
+            Canvas Graph
           </button>
         </div>
       </header>
@@ -71,7 +81,15 @@ export default function App() {
       <main className="workspace">
         <div className="main-content">
           {activeTab === "grid" ? (
-            <GridView nodes={nodes} onNodesChange={setNodes} />
+          <GridView
+            nodes={nodes}
+            onNodesChange={setNodes}
+            onEdgesChange={setEdges}
+            onInspectNode={(node) => {
+                console.log("App received node for inspection:", node);
+                setInspectedNode(node)} // <--- Passes state opener
+            }
+                />
           ) : (
             <GraphCanvas
               nodes={nodes}
@@ -82,6 +100,18 @@ export default function App() {
           )}
         </div>
       </main>
+
+      {/* Global Inspector Drawer Slide-over */}
+      {inspectedNode && (
+        <InspectorDrawer
+          node={inspectedNode}
+          allNodes={nodes}
+          allEdges={edges}
+          onClose={() => setInspectedNode(null)}
+          onNodesChange={setNodes}
+          onSwitchToGraphAndFocus={handleSwitchToGraphAndFocus}
+        />
+      )}
     </div>
   );
 }

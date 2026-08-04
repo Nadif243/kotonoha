@@ -81,7 +81,9 @@ export default function ContextMenu({
         className="menu-item"
         onClick={() => {
           onInspect(target.node);
-          onClose();
+          setTimeout(() => {
+            onClose();
+          }, 10);
         }}
       >
         <span className="menu-icon">📖</span> Inspect Entry Details
