@@ -56,7 +56,13 @@ export default function App() {
       {/* Header */}
       <header className="app-header">
         <div className="header-left">
-          <h1 className="app-title">言x葉 Kotonoha</h1>
+          {/* App Icon Image */}
+          <img
+            src="././app-icon-light.png"
+            alt="Kotonoha Logo"
+            className="app-header-logo"
+          />
+          <h1 className="app-title">言x葉</h1>
           <span className={`db-badge ${dbReady ? "online" : ""}`}>
             {dbReady ? "DB Ready" : "Connecting DB..."}
           </span>
@@ -85,10 +91,7 @@ export default function App() {
             nodes={nodes}
             onNodesChange={setNodes}
             onEdgesChange={setEdges}
-            onInspectNode={(node) => {
-                console.log("App received node for inspection:", node);
-                setInspectedNode(node)} // <--- Passes state opener
-            }
+            onInspectNode={(node) => setInspectedNode(node)}
                 />
           ) : (
             <GraphCanvas

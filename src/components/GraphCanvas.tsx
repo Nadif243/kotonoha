@@ -11,12 +11,13 @@ import {
   updateNodeNotes,
   NoteItem,
 } from "../core/db";
-import "./GraphCanvas.css";
-import { speakJapanese } from "../core/tts";import {
+import { speakJapanese } from "../core/tts";
+import {
   enrichAndCacheNode,
   EnrichmentPayload,
   IndividualKanjiInfo,
 } from "../core/enrichment";
+import "./GraphCanvas.css";
 
 interface GraphCanvasProps {
   nodes: NodeEntity[];
@@ -66,13 +67,14 @@ export default function GraphCanvas({
     edgesRef.current = edges;
   }, [nodes, edges]);
 
-  // Global ESC keydown listener untuk menutup Inspector di Canvas View
+  // Global ESC keydown listener to close Docked Panel in Canvas View
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        // Reset selected node / close inspector panel di Canvas View
-      setInspectedNode(null);
-      clearNodeSpotlight();
+        // Reset selected node / close inspector panel in Canvas View
+        setInspectedNode(null);
+        setSourceNode(null);
+        clearNodeSpotlight();
       }
     };
 
@@ -135,7 +137,8 @@ export default function GraphCanvas({
     setSourceNode(null);
   };
 
-  const openSidebarForNode = async (nodeId: string) => {
+  // Open Local Canvas Inspector Panel
+  const openCanvasInspector = async (nodeId: string) => {
     const targetNode = nodesRef.current.find((n) => n.id === nodeId);
     if (targetNode) {
       setInspectedNode(targetNode);
@@ -151,9 +154,9 @@ export default function GraphCanvas({
           const updatedNodes = await getAllNodes();
           onNodesChange(updatedNodes);
         }
-        } catch (err) {
-          console.error("Enrichment error:", err);
-        }
+      } catch (err) {
+        console.error("Enrichment error:", err);
+      }
     }
   };
 
@@ -418,13 +421,13 @@ export default function GraphCanvas({
 
       // Fallback 1: Shift + Click OR Right Click instantly opens sidebar
       if (originalEvent && (originalEvent.shiftKey || originalEvent.button === 2)) {
-        openSidebarForNode(clickedNodeId);
+        openCanvasInspector(clickedNodeId);
         return;
       }
 
       // Check double-tap time delta (350ms)
       if (lastTap.nodeId === clickedNodeId && now - lastTap.time < 350) {
-        openSidebarForNode(clickedNodeId);
+        openCanvasInspector(clickedNodeId);
         lastTapInfoRef.current = { time: 0, nodeId: null };
         return;
       }
@@ -445,12 +448,12 @@ export default function GraphCanvas({
 
     // Native Cytoscape Double Tap Event (Secondary Backup)
     cy.on("dbltap", "node", (evt) => {
-      openSidebarForNode(evt.target.id());
+      openCanvasInspector(evt.target.id());
     });
 
     // Right-click context menu prevent default
     cy.on("cxttap", "node", (evt) => {
-      openSidebarForNode(evt.target.id());
+      openCanvasInspector(evt.target.id());
     });
 
     // Delete Link Handler
@@ -607,17 +610,17 @@ export default function GraphCanvas({
 
   return (
     <div className="graph-container">
-      {/* Canvas Toolbar */}
+      {/* Floating Canvas Controls */}
       <div className="canvas-toolbar vertical-layout">
         {/* Row 1: Layer Choice */}
-        <div className="toolbar-row">
+        <div className="toolbar-row row-1">
           <div className="lens-toggle-group">
             <button
               type="button"
               className={`lens-btn ${activeLens === "ALL" ? "active" : ""}`}
               onClick={() => handleLensChange("ALL")}
             >
-               Full Web
+              Full Web
             </button>
             <button
               type="button"
@@ -637,9 +640,9 @@ export default function GraphCanvas({
         </div>
 
         {/* Row 2: Click to Link */}
-        <div className="toolbar-row link-row">
+        <div className="toolbar-row row-2">
           <span className="control-label">
-            {sourceNodeId ? "Select target node to link..." : "Click to link:"}
+            {sourceNodeId ? "Select target:" : "Click to link:"}
           </span>
 
           <div className="select-wrapper">
@@ -684,20 +687,18 @@ export default function GraphCanvas({
                 className="btn-cancel"
                 onClick={() => setSourceNode(null)}
               >
-                Cancel Link
+                Cancel
               </button>
             )}
           </div>
         </div>
 
-        {/* Row 3: Single Click Hint */}
-        <div className="toolbar-row hint-row">
+        <div className="toolbar-row row-3">
           <span className="sub-control-label">• Single-click to spotlight connections</span>
         </div>
 
-        {/* Row 4: Double Click Hint */}
-        <div className="toolbar-row hint-row">
-          <span className="sub-control-label">• Double-click / Right-click / Shift-click to inspect</span>
+        <div className="toolbar-row row-4">
+          <span className="sub-control-label">• Double-click / Right-click to inspect</span>
         </div>
       </div>
 
@@ -719,7 +720,7 @@ export default function GraphCanvas({
         </div>
       )}
 
-      {/* 2D Canvas Container */}
+      {/* 2D Cytoscape Canvas Container */}
       <div
         ref={containerRef}
         className={`cytoscape-canvas ${isCanvasReady ? "ready" : ""}`}
@@ -764,13 +765,13 @@ export default function GraphCanvas({
             {/* Audio Pronunciation Block */}
             <div className="sidebar-field tts-section">
               <button
-                  type="button"
-                  className="btn-tts-play"
-                  onClick={() => speakJapanese(inspectedNode.reading || inspectedNode.label)}
-                  title="Listen to Japanese pronunciation"
+                type="button"
+                className="btn-tts-play"
+                onClick={() => speakJapanese(inspectedNode.reading || inspectedNode.label)}
+                title="Listen to Japanese pronunciation"
               >
-                  <span className="tts-icon">🔊</span>
-                  <span className="tts-text">Play Pronunciation</span>
+                <span className="tts-icon">🔊</span>
+                <span className="tts-text">Play Pronunciation</span>
               </button>
             </div>
 
@@ -821,7 +822,7 @@ export default function GraphCanvas({
               </div>
             </div>
 
-            {/* Helper at top of render or inside component */}
+            {/* Auto-Enriched Metadata Block */}
             {(() => {
               let parsedAttrs: any = {};
               try {
@@ -861,16 +862,16 @@ export default function GraphCanvas({
                                 <span className="kanji-tag strokes">{item.stroke_count} strokes</span>
                               </div>
                               <div className="kanji-meanings">
-                                 {item.meanings.length > 0 ? item.meanings.join(", ") : "No meaning"}
+                                {item.meanings.length > 0 ? item.meanings.join(", ") : "No meaning"}
                               </div>
                             </div>
-                        </div>
+                          </div>
                         ))}
                         <div className="meta-card-footer">
                           <span className="status-dot success" />
                           <span>Enriched & Cached Locally</span>
                         </div>
-                    </div>
+                      </div>
                     )}
                   </div>
                 </div>

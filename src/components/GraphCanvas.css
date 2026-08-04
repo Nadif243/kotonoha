@@ -1,72 +1,174 @@
+/* ==========================================================================
+   1. MAIN GRAPH CANVAS CONTAINER
+   ========================================================================== */
 .graph-container {
   display: flex;
   flex-direction: row;
   height: 100%;
   width: 100%;
   position: relative;
-  background-color: #09090b;
+  background-color: #0c0c0e;
   overflow: hidden;
 }
 
-/* Two-Row Toolbar Box */
-.canvas-toolbar {
+/* Cytoscape Canvas Render Box */
+.cytoscape-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.15s ease-in-out;
+}
+
+.cytoscape-canvas.ready {
+  opacity: 1;
+}
+
+.empty-canvas-msg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #52525b;
+  font-size: 0.95rem;
+  letter-spacing: 0.5px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   2. CANVAS FLOATING TOOLBAR (COMPACT 4-ROW BOX)
+   ========================================================================== */
+.canvas-toolbar.vertical-layout {
   position: absolute;
   top: 12px;
   left: 16px;
-  z-index: 10;
-  background-color: #18181b;
-  border: 1px solid #27272a;
-  padding: 10px 14px;
-  border-radius: 8px;
-  display: flex;
+  z-index: 20;
+  display: inline-flex;
   flex-direction: column;
-  gap: 6px;
-  min-width: 380px;
+  gap: 0;
+  padding: 10px 12px;
+  background-color: rgba(24, 24, 27, 0.92);
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  /* Force box to strictly fit content width, no forced min-width */
+  width: fit-content !important;
+  max-width: fit-content !important;
+  box-sizing: border-box;
 }
 
-.toolbar-row {
-  display: flex;
-  align-items: center;
-}
-
-.toolbar-row.top-row {
-  justify-content: space-between;
-  width: 100%;
-  gap: 16px;
-}
-
-.toolbar-row.bottom-row {
-  border-top: 1px solid #27272a;
-  padding-top: 6px;
-  margin-top: 2px;
-}
-
-.control-label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #f4f4f5;
-}
-
-.sub-control-label {
-  font-size: 0.75rem;
-  color: #a1a1aa;
-}
-
-.select-wrapper {
+/* Base Toolbar Row */
+.canvas-toolbar .toolbar-row {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: max-content;
+}
+
+/* Specific Row Vertical Margins */
+.canvas-toolbar .toolbar-row.row-1 {
+  margin-bottom: 8px;
+}
+
+.canvas-toolbar .toolbar-row.row-2 {
+  margin-bottom: 8px;
+}
+
+.canvas-toolbar .toolbar-row.row-3 {
+  margin-bottom: 2px;
+}
+
+.canvas-toolbar .toolbar-row.row-4 {
+  margin-bottom: 0;
+}
+
+/* Labels & Hints */
+.control-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #f4f4f5;
+  white-space: nowrap;
+}
+
+.sub-control-label {
+  font-size: 0.72rem;
+  color: #71717a;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* Layer Lens Toggle Group */
+.lens-toggle-group {
+  display: flex;
+  background-color: #09090b;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.lens-btn {
+  background: transparent;
+  border: none;
+  color: #a1a1aa;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.lens-btn:hover {
+  color: #ffffff;
+  background-color: #18181b;
+}
+
+.lens-btn.active {
+  background-color: #27272a;
+  color: #a855f7;
+  font-weight: 600;
+}
+
+/* Relation Select & Buttons Wrapper */
+.select-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .select-wrapper select {
   background-color: #09090b;
   border: 1px solid #27272a;
   color: #f4f4f5;
-  padding: 4px 8px;
+  padding: 4px 10px;
   border-radius: 4px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   outline: none;
+}
+
+.select-wrapper select optgroup {
+  background-color: #18181b;
+  color: #a855f7;
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
+.select-wrapper select option {
+  background-color: #09090b;
+  color: #f4f4f5;
+  font-weight: normal;
+  padding: 4px 8px;
+}
+
+.select-wrapper select option:disabled {
+  color: #52525b;
+  background-color: #121215;
 }
 
 .btn-cancel {
@@ -77,9 +179,12 @@
   border-radius: 4px;
   font-size: 0.75rem;
   cursor: pointer;
+  white-space: nowrap;
 }
 
-/* Viewport Controls Box */
+/* ==========================================================================
+   3. VIEWPORT CONTROLS (ZOOM & RECENTER)
+   ========================================================================== */
 .viewport-controls {
   position: absolute;
   bottom: 20px;
@@ -90,10 +195,10 @@
   background-color: #18181b;
   border: 1px solid #27272a;
   border-radius: 8px;
-  padding: 6px;
+  padding: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   transition: right 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  width: 96px;
+  width: 80px;
 }
 
 .viewport-controls.sidebar-open {
@@ -103,7 +208,7 @@
 .zoom-row {
   display: flex;
   justify-content: space-between;
-  gap: 4px;
+  gap: 2px;
 }
 
 .viewport-controls button {
@@ -113,7 +218,7 @@
   font-size: 1.1rem;
   font-weight: 600;
   flex: 1;
-  height: 34px;
+  height: 32px;
   border-radius: 4px;
   cursor: pointer;
   display: flex;
@@ -130,11 +235,11 @@
 .viewport-divider {
   height: 1px;
   background-color: #27272a;
-  margin: 6px 0;
+  margin: 4px 0;
 }
 
 .viewport-controls button.btn-fit {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-weight: 500;
   width: 100%;
   height: 38px;
@@ -142,33 +247,9 @@
   line-height: 1;
 }
 
-.empty-canvas-msg {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #52525b;
-  font-size: 0.95rem;
-  letter-spacing: 0.5px;
-  z-index: 5;
-  pointer-events: none;
-}
-
-.cytoscape-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  transition: opacity 0.15s ease-in-out;
-}
-
-.cytoscape-canvas.ready {
-  opacity: 1;
-}
-
-/* ABSOLUTE POSITIONED DOCKED RIGHT SIDEBAR */
+/* ==========================================================================
+   4. IN-CANVAS DOCKED INSPECTOR SIDEBAR
+   ========================================================================== */
 .inspector-sidebar {
   position: absolute;
   top: 0;
@@ -269,100 +350,35 @@
   color: #e4e4e7;
 }
 
-.context-textarea {
-  background-color: #09090b;
+/* TTS Audio Button */
+.tts-section {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.btn-tts-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #18181b;
   border: 1px solid #27272a;
   border-radius: 6px;
-  padding: 10px;
-  font-size: 0.85rem;
   color: #f4f4f5;
-  line-height: 1.4;
-  min-height: 120px;
-  resize: vertical;
-  outline: none;
-  font-family: inherit;
-  transition: border-color 0.15s;
-}
-
-.context-textarea:focus {
-  border-color: #6366f1;
-}
-
-.btn-save-note {
-  background-color: #27272a;
-  border: 1px solid #3f3f46;
-  color: #f4f4f5;
-  padding: 8px;
-  border-radius: 6px;
+  padding: 6px 12px;
   font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.15s;
-  align-self: flex-end;
-}
-
-.btn-save-note:hover:not(:disabled) {
-  background-color: #3f3f46;
-}
-
-.btn-save-note:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.select-wrapper select optgroup {
-  background-color: #18181b;
-  color: #a855f7;
-  font-weight: 600;
-  font-size: 0.78rem;
-}
-
-.select-wrapper select option {
-  background-color: #09090b;
-  color: #f4f4f5;
-  font-weight: normal;
-  padding: 4px 8px;
-}
-
-.select-wrapper select option:disabled {
-  color: #52525b;
-  background-color: #121215;
-}
-
-/* Layer Lens Toggle Buttons */
-.lens-toggle-group {
-  display: flex;
-  background-color: #09090b;
-  border: 1px solid #27272a;
-  border-radius: 6px;
-  padding: 2px;
-  gap: 2px;
-}
-
-.lens-btn {
-  background: transparent;
-  border: none;
-  color: #a1a1aa;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  cursor: pointer;
+  width: fit-content;
   transition: all 0.15s ease;
 }
 
-.lens-btn:hover {
-  color: #ffffff;
-  background-color: #18181b;
-}
-
-.lens-btn.active {
+.btn-tts-play:hover {
   background-color: #27272a;
+  border-color: #a855f7;
   color: #a855f7;
-  font-weight: 600;
 }
 
-/* Sidebar Note List Layout */
+/* Notes Section */
 .notes-list {
   display: flex;
   flex-direction: column;
@@ -413,7 +429,6 @@
   color: #ef4444;
 }
 
-/* Add Note Input Bar */
 .add-note-box {
   display: flex;
   gap: 6px;
@@ -458,93 +473,13 @@
   cursor: not-allowed;
 }
 
-/* TTS Audio Pronunciation Button */
-.tts-section {
-  margin-top: 4px;
-  margin-bottom: 4px;
-}
-
-.btn-tts-play {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background-color: #18181b;
-  border: 1px solid #27272a;
-  border-radius: 6px;
-  color: #f4f4f5;
-  padding: 6px 12px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  width: fit-content;
-  transition: all 0.15s ease;
-}
-
-.btn-tts-play:hover {
-  background-color: #27272a;
-  border-color: #a855f7;
-  color: #a855f7;
-}
-
-.btn-tts-play:active {
-  transform: scale(0.97);
-}
-
-.tts-icon {
-  font-size: 0.9rem;
-}
-
-.tts-text {
-  font-size: 0.78rem;
-  font-weight: 500;
-}
-
-/* Metadata Section Styling */
+/* Auto-Enriched Metadata Cards */
 .metadata-section {
   margin-top: 12px;
   border-top: 1px solid #27272a;
   padding-top: 12px;
 }
 
-.metadata-card {
-  background-color: #09090b;
-  border: 1px solid #27272a;
-  border-radius: 6px;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.meta-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.8rem;
-  color: #e4e4e7;
-}
-
-.meta-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.72rem;
-  color: #a1a1aa;
-}
-
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: #71717a;
-}
-
-.status-dot.online {
-  background-color: #10b981;
-  box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
-}
-
-/* Multi-Kanji Detailed Cards */
 .metadata-container {
   margin-top: 6px;
 }
@@ -629,63 +564,4 @@
   font-size: 0.75rem;
   color: #d4d4d8;
   text-transform: capitalize;
-}
-
-.meta-card-footer {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.7rem;
-  color: #71717a;
-  margin-top: 2px;
-}
-
-.status-dot.pending.pulse {
-  animation: pulse-glow 1.2s infinite ease-in-out;
-}
-
-@keyframes pulse-glow {
-  0% { opacity: 0.3; transform: scale(0.9); }
-  50% { opacity: 1; transform: scale(1.2); background-color: #a855f7; }
-  100% { opacity: 0.3; transform: scale(0.9); }
-}
-
-.canvas-toolbar.vertical-layout {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 0; /* Kita kontrol gap per baris secara presisi */
-  padding: 10px 14px;
-  background-color: rgba(24, 24, 27, 0.92);
-  border: 1px solid #27272a;
-  border-radius: 8px;
-  backdrop-filter: blur(8px);
-  width: max-content !important;
-  box-sizing: border-box;
-}
-
-/* Row 1: Layer Buttons */
-.canvas-toolbar .toolbar-row:nth-child(1) {
-  margin-bottom: 8px; /* Spacing halus antara Row 1 dan Row 2 */
-}
-
-.lens-btn {
-  padding: 6px 12px !important; /* Memperbesar ukuran tombol layer sedikit */
-  font-size: 0.78rem !important;
-}
-
-/* Row 2: Link Controls */
-.canvas-toolbar .toolbar-row.link-row {
-  margin-bottom: 8px; /* Spacing halus antara Row 2 dan Row 3 */
-}
-
-/* Row 3 & 4: Hints */
-.canvas-toolbar .toolbar-row.hint-row {
-  margin-bottom: 2px; /* Row 3 ke Row 4 tetap rapat dan ringkas */
-}
-
-.canvas-toolbar .toolbar-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
 }
