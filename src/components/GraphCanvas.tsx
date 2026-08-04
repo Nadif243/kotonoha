@@ -66,6 +66,22 @@ export default function GraphCanvas({
     edgesRef.current = edges;
   }, [nodes, edges]);
 
+  // Global ESC keydown listener untuk menutup Inspector di Canvas View
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        // Reset selected node / close inspector panel di Canvas View
+      setInspectedNode(null);
+      clearNodeSpotlight();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
   const setSourceNode = (id: string | null) => {
     sourceNodeIdRef.current = id;
     setSourceNodeIdState(id);

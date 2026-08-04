@@ -41,6 +41,20 @@ export default function InspectorDrawer({
     }
   }, [node]);
 
+  // Global ESC keydown listener to close drawer
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
+
   if (!node) return null;
 
   // Find connected hubs
