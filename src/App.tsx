@@ -42,15 +42,15 @@ export default function App() {
   };
 
   // Quit Application Handler (Tauri / Electron / Browser Fallback)
-  const handleQuitApp = () => {
-    if (window.confirm("Quit Kotonoha application?")) {
-      // @ts-ignore
-      if (window.__TAURI__) {
-        // @ts-ignore
-        window.__TAURI__.process.exit(0);
-      } else {
-        window.close();
-      }
+  const handleQuitApp = async () => {
+  if (!window.confirm("Quit Kotonoha application?")) return;
+
+  try {
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    const appWindow = getCurrentWindow();
+    await appWindow.close();
+  } catch (err) {
+    console.error("Failed to quit via Tauri Window API:", err);
     }
   };
 
