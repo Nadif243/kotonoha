@@ -608,16 +608,16 @@ export default function GraphCanvas({
   return (
     <div className="graph-container">
       {/* Canvas Toolbar */}
-      <div className="canvas-toolbar">
-        <div className="toolbar-row top-row">
-          {/* Layer Filtering Lens Controls */}
+      <div className="canvas-toolbar vertical-layout">
+        {/* Row 1: Layer Choice */}
+        <div className="toolbar-row">
           <div className="lens-toggle-group">
             <button
               type="button"
               className={`lens-btn ${activeLens === "ALL" ? "active" : ""}`}
               onClick={() => handleLensChange("ALL")}
             >
-              Full Web
+               Full Web
             </button>
             <button
               type="button"
@@ -634,9 +634,12 @@ export default function GraphCanvas({
               Hub Map
             </button>
           </div>
+        </div>
 
+        {/* Row 2: Click to Link */}
+        <div className="toolbar-row link-row">
           <span className="control-label">
-            {sourceNodeId ? "Select target node to link..." : "Click to link"}
+            {sourceNodeId ? "Select target node to link..." : "Click to link:"}
           </span>
 
           <div className="select-wrapper">
@@ -686,10 +689,15 @@ export default function GraphCanvas({
             )}
           </div>
         </div>
-        <div className="toolbar-row bottom-row">
-          <span className="sub-control-label">
-            Double-click / Right-click / Shift-click to inspect • Single-click to spotlight connections
-          </span>
+
+        {/* Row 3: Single Click Hint */}
+        <div className="toolbar-row hint-row">
+          <span className="sub-control-label">• Single-click to spotlight connections</span>
+        </div>
+
+        {/* Row 4: Double Click Hint */}
+        <div className="toolbar-row hint-row">
+          <span className="sub-control-label">• Double-click / Right-click / Shift-click to inspect</span>
         </div>
       </div>
 

@@ -649,3 +649,43 @@
   50% { opacity: 1; transform: scale(1.2); background-color: #a855f7; }
   100% { opacity: 0.3; transform: scale(0.9); }
 }
+
+.canvas-toolbar.vertical-layout {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0; /* Kita kontrol gap per baris secara presisi */
+  padding: 10px 14px;
+  background-color: rgba(24, 24, 27, 0.92);
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+  width: max-content !important;
+  box-sizing: border-box;
+}
+
+/* Row 1: Layer Buttons */
+.canvas-toolbar .toolbar-row:nth-child(1) {
+  margin-bottom: 8px; /* Spacing halus antara Row 1 dan Row 2 */
+}
+
+.lens-btn {
+  padding: 6px 12px !important; /* Memperbesar ukuran tombol layer sedikit */
+  font-size: 0.78rem !important;
+}
+
+/* Row 2: Link Controls */
+.canvas-toolbar .toolbar-row.link-row {
+  margin-bottom: 8px; /* Spacing halus antara Row 2 dan Row 3 */
+}
+
+/* Row 3 & 4: Hints */
+.canvas-toolbar .toolbar-row.hint-row {
+  margin-bottom: 2px; /* Row 3 ke Row 4 tetap rapat dan ringkas */
+}
+
+.canvas-toolbar .toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}

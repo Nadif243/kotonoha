@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { NodeEntity, PriorityStatus, DomainType } from "../types/database";
 import {
   insertNode,
@@ -88,9 +88,8 @@ export default function GridView({
     });
   };
 
-  // Global Context Menu Disabler (Type-safe & React compliant)
+  // Global Context Menu Disabler
   const handleContainerContextMenu = (e: React.MouseEvent) => {
-    // Selalu prevent default menu bawaan browser di seluruh workbench
     e.preventDefault();
   };
 
@@ -381,7 +380,7 @@ export default function GridView({
 
   return (
     <div
-      className="grid-workbench"
+      className={`grid-workbench tab-${activeTab.toLowerCase()}`}
       onPointerUp={handlePointerUp}
       onContextMenu={handleContainerContextMenu}
     >
@@ -545,200 +544,202 @@ export default function GridView({
       {/* Duplicate Warning Banner */}
       {errorMsg && <div className="error-banner">{errorMsg}</div>}
 
-      {/* Grid Object Container */}
-      <div className="grid-table-container">
-        {/* Table Header */}
-        <div className="grid-table-header" onContextMenu={(e) => e.preventDefault()}>
-          <div
-            className={`grid-cell cell-seq sortable ${
-              activeSortCol === "INDEX" ? "active-sort" : ""
-            }`}
-            onClick={() => handleSortClick("INDEX")}
-          >
-            # <span className="sort-hint">{activeSortCol === "INDEX" ? (sortDir === "ASC" ? "▲" : "▼") : "↕"}</span>
-          </div>
-
-          <div className="grid-cell cell-label">
-            {activeTab === "DOMAIN_HUB" ? "Hub Title" : "Entity / Word"}
-          </div>
-
-          {activeTab !== "DOMAIN_HUB" && (
-            <div className="grid-cell cell-reading">Reading</div>
-          )}
-
-          {activeTab !== "DOMAIN_HUB" && (
+      {/* Grid Object Container Wrapper with Vertical Scroll */}
+      <div className="table-container">
+        <div className="grid-table-container">
+          {/* Table Header */}
+          <div className="grid-table-header" onContextMenu={(e) => e.preventDefault()}>
             <div
-              className={`grid-cell cell-meaning sortable ${
-                activeSortCol === "MEANING" ? "active-sort" : ""
+              className={`grid-cell cell-seq sortable ${
+                activeSortCol === "INDEX" ? "active-sort" : ""
               }`}
-              onClick={() => handleSortClick("MEANING")}
+              onClick={() => handleSortClick("INDEX")}
             >
-              Meaning / Description{" "}
-              <span className="sort-hint">{activeSortCol === "MEANING" ? (sortDir === "ASC" ? "▲" : "▼") : "↕"}</span>
+              # <span className="sort-hint">{activeSortCol === "INDEX" ? (sortDir === "ASC" ? "▲" : "▼") : "↕"}</span>
             </div>
-          )}
 
-          {activeTab === "DICT_INDEX" && (
-            <div className="grid-cell cell-type">Type</div>
-          )}
-
-          {activeTab !== "DOMAIN_HUB" && (
-            <div
-              className={`grid-cell cell-priority sortable ${
-                activeSortCol === "PRIORITY" ? "active-sort" : ""
-              }`}
-              onClick={() => handleSortClick("PRIORITY")}
-            >
-              Priority{" "}
-              <span className="sort-hint">{activeSortCol === "PRIORITY" ? (sortDir === "ASC" ? "▲" : "▼") : "↕"}</span>
+            <div className="grid-cell cell-label">
+              {activeTab === "DOMAIN_HUB" ? "Hub Title" : "Entity / Word"}
             </div>
-          )}
 
-          <div className="grid-cell cell-actions">Actions</div>
-        </div>
+            {activeTab !== "DOMAIN_HUB" && (
+              <div className="grid-cell cell-reading">Reading</div>
+            )}
 
-        {/* Table Body */}
-        <div className="grid-table-body">
-          {filteredNodes.length === 0 ? (
-            <div className="empty-grid-row">
-              No {activeTab.toLowerCase().replace("_", " ")} entries found.
-            </div>
-          ) : (
-            filteredNodes.map((node, index) => (
+            {activeTab !== "DOMAIN_HUB" && (
               <div
-                key={node.id}
-                className={`grid-table-row ${node.priority_status.toLowerCase()} ${
-                  draggingIndex === index ? "is-holding" : ""
-                } ${
-                  dragOverIndex === index && draggingIndex !== index
-                    ? "is-drag-over"
-                    : ""
+                className={`grid-cell cell-meaning sortable ${
+                  activeSortCol === "MEANING" ? "active-sort" : ""
                 }`}
-                onPointerEnter={() => handlePointerEnter(index)}
-                onContextMenu={(e) => handleRowContextMenu(e, node)}
+                onClick={() => handleSortClick("MEANING")}
               >
-                {/* Drag Handle Grip */}
-                <div
-                  className="grid-cell cell-seq drag-handle"
-                  onPointerDown={() => handlePointerDown(index)}
-                  title="Click & hold to move row"
-                >
-                  <span className="drag-icon">⋮⋮</span> {index + 1}
-                </div>
+                Meaning / Description{" "}
+                <span className="sort-hint">{activeSortCol === "MEANING" ? (sortDir === "ASC" ? "▲" : "▼") : "↕"}</span>
+              </div>
+            )}
 
-                {/* Word Label + Age Badge */}
-                <div className="grid-cell cell-label">
-                  {editingNode?.id === node.id ? (
-                    <input
-                      type="text"
-                      value={editLabel}
-                      onChange={(e) => setEditLabel(e.target.value)}
-                      className="inline-edit-input"
-                    />
-                  ) : (
-                    <div className="label-wrapper">
-                      <span className="word-text">{node.label}</span>
-                      <span className="creation-age-badge">
-                        #{getOriginalCreationIndex(node.id)}
+            {activeTab === "DICT_INDEX" && (
+              <div className="grid-cell cell-type">Type</div>
+            )}
+
+            {activeTab !== "DOMAIN_HUB" && (
+              <div
+                className={`grid-cell cell-priority sortable ${
+                  activeSortCol === "PRIORITY" ? "active-sort" : ""
+                }`}
+                onClick={() => handleSortClick("PRIORITY")}
+              >
+                Priority{" "}
+                <span className="sort-hint">{activeSortCol === "PRIORITY" ? (sortDir === "ASC" ? "▲" : "▼") : "↕"}</span>
+              </div>
+            )}
+
+            <div className="grid-cell cell-actions">Actions</div>
+          </div>
+
+          {/* Table Body */}
+          <div className="grid-table-body">
+            {filteredNodes.length === 0 ? (
+              <div className="empty-grid-row">
+                No {activeTab.toLowerCase().replace("_", " ")} entries found.
+              </div>
+            ) : (
+              filteredNodes.map((node, index) => (
+                <div
+                  key={node.id}
+                  className={`grid-table-row ${node.priority_status.toLowerCase()} ${
+                    draggingIndex === index ? "is-holding" : ""
+                  } ${
+                    dragOverIndex === index && draggingIndex !== index
+                      ? "is-drag-over"
+                      : ""
+                  }`}
+                  onPointerEnter={() => handlePointerEnter(index)}
+                  onContextMenu={(e) => handleRowContextMenu(e, node)}
+                >
+                  {/* Drag Handle Grip */}
+                  <div
+                    className="grid-cell cell-seq drag-handle"
+                    onPointerDown={() => handlePointerDown(index)}
+                    title="Click & hold to move row"
+                  >
+                    <span className="drag-icon">⋮⋮</span> {index + 1}
+                  </div>
+
+                  {/* Word Label + Age Badge */}
+                  <div className="grid-cell cell-label">
+                    {editingNode?.id === node.id ? (
+                      <input
+                        type="text"
+                        value={editLabel}
+                        onChange={(e) => setEditLabel(e.target.value)}
+                        className="inline-edit-input"
+                      />
+                    ) : (
+                      <div className="label-wrapper">
+                        <span className="word-text">{node.label}</span>
+                        <span className="creation-age-badge">
+                          #{getOriginalCreationIndex(node.id)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Reading */}
+                  {activeTab !== "DOMAIN_HUB" && (
+                    <div className="grid-cell cell-reading">
+                      {editingNode?.id === node.id ? (
+                        <input
+                          type="text"
+                          value={editReading}
+                          onChange={(e) => setEditReading(e.target.value)}
+                          className="inline-edit-input"
+                        />
+                      ) : (
+                        node.reading || "—"
+                      )}
+                    </div>
+                  )}
+
+                  {/* Meaning */}
+                  {activeTab !== "DOMAIN_HUB" && (
+                    <div className="grid-cell cell-meaning">
+                      {editingNode?.id === node.id ? (
+                        <input
+                          type="text"
+                          value={editMeaning}
+                          onChange={(e) => setEditMeaning(e.target.value)}
+                          className="inline-edit-input"
+                        />
+                      ) : (
+                        node.meaning_en || "—"
+                      )}
+                    </div>
+                  )}
+
+                  {/* Type Badge */}
+                  {activeTab === "DICT_INDEX" && (
+                    <div className="grid-cell cell-type">
+                      <span className={`type-badge ${node.domain_type.toLowerCase()}`}>
+                        {node.domain_type}
                       </span>
                     </div>
                   )}
-                </div>
 
-                {/* Reading */}
-                {activeTab !== "DOMAIN_HUB" && (
-                  <div className="grid-cell cell-reading">
-                    {editingNode?.id === node.id ? (
-                      <input
-                        type="text"
-                        value={editReading}
-                        onChange={(e) => setEditReading(e.target.value)}
-                        className="inline-edit-input"
-                      />
-                    ) : (
-                      node.reading || "—"
-                    )}
-                  </div>
-                )}
-
-                {/* Meaning */}
-                {activeTab !== "DOMAIN_HUB" && (
-                  <div className="grid-cell cell-meaning">
-                    {editingNode?.id === node.id ? (
-                      <input
-                        type="text"
-                        value={editMeaning}
-                        onChange={(e) => setEditMeaning(e.target.value)}
-                        className="inline-edit-input"
-                      />
-                    ) : (
-                      node.meaning_en || "—"
-                    )}
-                  </div>
-                )}
-
-                {/* Type Badge */}
-                {activeTab === "DICT_INDEX" && (
-                  <div className="grid-cell cell-type">
-                    <span className={`type-badge ${node.domain_type.toLowerCase()}`}>
-                      {node.domain_type}
-                    </span>
-                  </div>
-                )}
-
-                {/* Priority Badge */}
-                {activeTab !== "DOMAIN_HUB" && (
-                  <div className="grid-cell cell-priority">
-                    <button
-                      type="button"
-                      className={`priority-badge clickable ${node.priority_status.toLowerCase()}`}
-                      onClick={() => handleCyclePriority(node)}
-                      title="Click to toggle priority status"
-                    >
-                      {node.priority_status}
-                    </button>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="grid-cell cell-actions">
-                  {editingNode?.id === node.id ? (
-                    <div className="edit-btn-group">
-                      <button type="button" className="btn-save" onClick={handleSaveEdit}>
-                        Save
-                      </button>
+                  {/* Priority Badge */}
+                  {activeTab !== "DOMAIN_HUB" && (
+                    <div className="grid-cell cell-priority">
                       <button
                         type="button"
-                        className="btn-cancel-edit"
-                        onClick={() => setEditingNode(null)}
+                        className={`priority-badge clickable ${node.priority_status.toLowerCase()}`}
+                        onClick={() => handleCyclePriority(node)}
+                        title="Click to toggle priority status"
                       >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="action-btn-group">
-                      <button
-                        type="button"
-                        className="btn-edit"
-                        onClick={() => startEditing(node)}
-                        title="Edit entry details"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-delete"
-                        onClick={() => handleDelete(node.id)}
-                        title="Delete entry"
-                      >
-                        ×
+                        {node.priority_status}
                       </button>
                     </div>
                   )}
+
+                  {/* Actions */}
+                  <div className="grid-cell cell-actions">
+                    {editingNode?.id === node.id ? (
+                      <div className="edit-btn-group">
+                        <button type="button" className="btn-save" onClick={handleSaveEdit}>
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-cancel-edit"
+                          onClick={() => setEditingNode(null)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="action-btn-group">
+                        <button
+                          type="button"
+                          className="btn-edit"
+                          onClick={() => startEditing(node)}
+                          title="Edit entry details"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-delete"
+                          onClick={() => handleDelete(node.id)}
+                          title="Delete entry"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
       </div>
 
@@ -748,12 +749,8 @@ export default function GridView({
           target={contextMenuTarget}
           onClose={() => setContextMenuTarget(null)}
           onInspect={(node) => {
-            console.log("1. ContextMenu triggered inspect for:", node.label);
             if (onInspectNode) {
-                console.log("2. Calling onInspectNode callback!");
-                onInspectNode(node);
-            } else {
-                console.error("2. ERROR: onInspectNode prop is UNDEFINED in GridView!");
+              onInspectNode(node);
             }
           }}
           onQuickEdit={(node) => startEditing(node)}

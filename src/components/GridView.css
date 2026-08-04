@@ -1,173 +1,36 @@
+/* ==========================================================================
+   1. MAIN WORKBENCH & CONTAINER LAYOUT
+   ========================================================================== */
 .grid-workbench {
   display: flex;
   flex-direction: column;
   height: 100%;
   width: 100%;
-}
-
-.entry-form {
-  display: flex;
-  gap: 8px;
-  padding: 12px 16px;
-  background-color: #18181b;
-  border-bottom: 1px solid #27272a;
-  flex-wrap: wrap;
-}
-
-.entry-form input,
-.entry-form select {
-  background-color: #09090b;
-  border: 1px solid #27272a;
-  color: #f4f4f5;
-  padding: 6px 10px;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  outline: none;
-}
-
-.entry-form input:focus,
-.entry-form select:focus {
-  border-color: #3f3f46;
-}
-
-.entry-form input {
-  flex: 1;
-  min-width: 130px;
-}
-
-.entry-form button {
-  background-color: #27272a;
-  color: #ffffff;
-  border: 1px solid #3f3f46;
-  padding: 6px 14px;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.entry-form button:hover {
-  background-color: #3f3f46;
+  overflow: hidden;
 }
 
 .table-container {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-  font-size: 0.875rem;
+/* Custom Scrollbar Styling */
+.table-container::-webkit-scrollbar {
+  width: 6px;
 }
 
-.data-table th {
-  background-color: #18181b;
-  color: #71717a;
-  font-weight: 600;
-  padding: 10px 14px;
-  border-bottom: 1px solid #27272a;
-  position: sticky;
-  top: 0;
+.table-container::-webkit-scrollbar-track {
+  background: #09090b;
 }
 
-.data-table td {
-  padding: 10px 14px;
-  border-bottom: 1px solid #18181b;
-  color: #d4d4d8;
-  vertical-align: middle;
+.table-container::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 3px;
 }
 
-.data-table tbody tr {
-  cursor: pointer;
-  transition: background-color 0.1s;
-}
-
-.data-table tbody tr:hover {
-  background-color: #18181b;
-}
-
-.data-table tbody tr.selected {
-  background-color: #27272a;
-}
-
-.empty-row {
-  text-align: center;
-  color: #52525b;
-  padding: 40px !important;
-}
-
-.col-label {
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.col-seq {
-  color: #52525b;
-  font-size: 0.8rem;
-  width: 40px;
-}
-
-.priority-badge {
-  font-size: 0.7rem;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 600;
-}
-
-.priority-badge.hard {
-  background-color: #451a03;
-  color: #f97316;
-}
-
-.priority-badge.review {
-  background-color: #1e1b4b;
-  color: #818cf8;
-}
-
-.priority-badge.settled {
-  background-color: #064e3b;
-  color: #34d399;
-}
-
-.priority-badge.clickable {
-  border: none;
-  cursor: pointer;
-  display: inline-block;
-  vertical-align: middle;
-  line-height: 1.2;
-  transition: opacity 0.15s;
-}
-
-.priority-badge.clickable:hover {
-  opacity: 0.85;
-}
-
-.col-actions {
-  text-align: center;
-  width: 60px;
-}
-
-.btn-delete {
-  background: transparent;
-  border: none;
-  color: #71717a;
-  font-size: 1.2rem;
-  line-height: 1;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  display: inline-block;
-  vertical-align: middle;
-  transition: color 0.15s, background-color 0.15s;
-}
-
-.btn-delete:hover {
-  color: #ef4444;
-  background-color: #27272a;
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
 }
 
 .error-banner {
@@ -181,60 +44,27 @@
   align-items: center;
 }
 
-.form-row-2 {
-  display: flex;
-  gap: 12px;
-}
-
-.form-row-2 .form-group {
-  flex: 1;
-}
-
-/* Domain Type Badges for Grid Table */
-.type-badge {
-  display: inline-block;
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  background-color: #27272a;
-  color: #a1a1aa;
-}
-
-.type-badge.lexical {
-  background-color: #18181b;
-  border: 1px solid #3f3f46;
-  color: #d4d4d8;
-}
-
-.type-badge.grammar {
-  background-color: #172554;
-  border: 1px solid #1d4ed8;
-  color: #93c5fd;
-}
-
-.type-badge.domain_hub {
-  background-color: #312e81;
-  border: 1px solid #4338ca;
-  color: #c7d2fe;
-}
-/* Navigation Category Tabs */
+/* ==========================================================================
+   2. NAVIGATION TABS BAR
+   ========================================================================== */
 .view-tabs {
   display: flex;
   gap: 8px;
-  margin-bottom: 12px;
+  align-items: stretch;
+  margin-bottom: 0 !important;
+  padding-bottom: 0;
   border-bottom: 1px solid #27272a;
-  padding-bottom: 8px;
 }
 
 .tab-btn {
   background: transparent;
   border: 1px solid transparent;
   color: #a1a1aa;
-  padding: 6px 14px;
-  border-radius: 6px;
+  padding: 10px 16px;
+  margin: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom: none;
   font-size: 0.82rem;
   font-weight: 500;
   cursor: pointer;
@@ -254,15 +84,38 @@
 }
 
 .tab-btn.tab-all {
-  margin-left: auto; /* Push "All" to the right edge */
+  margin-left: auto; /* Push "All" tab to the right edge */
   border-left: 1px solid #27272a;
 }
 
-/* Form adaptive flex tweaks */
-.entry-form select.select-type {
-  font-weight: 600;
-  border-color: #3f3f46;
+/* ==========================================================================
+   3. TOP ENTRY FORM & INPUTS
+   ========================================================================== */
+.entry-form {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
   background-color: #18181b;
+  border-bottom: 1px solid #27272a;
+  border-top: none;
+  margin-top: 0 !important;
+  flex-wrap: wrap;
+}
+
+.entry-form input,
+.entry-form select {
+  background-color: #09090b;
+  border: 1px solid #27272a;
+  color: #f4f4f5;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.entry-form input:focus,
+.entry-form select:focus {
+  border-color: #3f3f46;
 }
 
 .entry-form input.input-main {
@@ -273,118 +126,33 @@
   flex: 1;
 }
 
+.entry-form select,
+.select-type,
 .select-hub {
-  background-color: #09090b;
-  border: 1px solid #27272a;
-  color: #a1a1aa;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 0.82rem;
-  outline: none;
+  padding-right: 28px !important;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23A1A1AA%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px top 50%;
+  background-size: 8px auto;
 }
 
-.action-btn-group, .edit-btn-group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.btn-edit {
-  background: transparent;
-  border: 1px solid #3f3f46;
-  color: #a1a1aa;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  cursor: pointer;
-}
-
-.btn-edit:hover {
-  color: #ffffff;
-  border-color: #6366f1;
-}
-
-.btn-save {
-  background-color: #10b981;
-  border: none;
-  color: #ffffff;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  cursor: pointer;
-}
-
-.btn-cancel-edit {
+.entry-form button {
   background-color: #27272a;
-  border: none;
-  color: #a1a1aa;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  cursor: pointer;
-}
-
-.inline-edit-input {
-  background-color: #09090b;
-  border: 1px solid #6366f1;
   color: #ffffff;
-  padding: 4px 6px;
+  border: 1px solid #3f3f46;
+  padding: 6px 14px;
   border-radius: 4px;
   font-size: 0.85rem;
-  width: 100%;
-}
-
-/* Sortable Header Indicators */
-.sortable-th {
+  font-weight: 500;
   cursor: pointer;
-  user-select: none;
-  transition: color 0.15s ease, background-color 0.15s ease;
+  transition: background-color 0.15s;
 }
 
-.sortable-th:hover {
-  color: #a855f7;
-  background-color: #18181b;
+.entry-form button:hover {
+  background-color: #3f3f46;
 }
 
-.th-id {
-  width: 50px;
-}
-
-/* Priority Interactive Chip */
-.priority-chip {
-  border: none;
-  border-radius: 4px;
-  padding: 3px 8px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.1s ease, filter 0.15s ease;
-}
-
-.priority-chip:hover {
-  filter: brightness(1.2);
-  transform: scale(1.04);
-}
-
-.priority-chip.hard {
-  background-color: #2a1205;
-  color: #f97316;
-  border: 1px solid #7c2d12;
-}
-
-.priority-chip.review {
-  background-color: #0f0e26;
-  color: #818cf8;
-  border: 1px solid #3730a3;
-}
-
-.priority-chip.settled {
-  background-color: #021a12;
-  color: #34d399;
-  border: 1px solid #065f46;
-}
-
-/* Truncation & Hover Tooltip for Input Group */
 .input-group {
   position: relative;
   flex: 1;
@@ -395,157 +163,9 @@
   text-overflow: ellipsis;
 }
 
-/* Rigid Table Layout - Prevents Resizing & Reflow Jumps */
-.data-table {
-  width: 100%;
-  table-layout: fixed; /* Force rigid column dimensions */
-  border-collapse: collapse;
-}
-
-/* Header Row Stability */
-.data-table th {
-  white-space: nowrap; /* Prevent text wrapping like # and ▲ into 2 lines */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  vertical-align: middle;
-  padding: 10px 12px;
-}
-
-.data-table td {
-  padding: 8px 12px;
-  vertical-align: middle;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Fixed Column Width Distribution */
-.col-seq {
-  width: 65px !important; /* Plenty of room for # and arrow side-by-side */
-  text-align: center;
-}
-
-.col-label {
-  width: 20%;
-}
-
-.col-reading {
-  width: 20%;
-}
-
-.col-meaning {
-  width: 30%;
-}
-
-.col-type {
-  width: 12%;
-}
-
-.col-priority {
-  width: 12%;
-}
-
-.col-actions {
-  width: 110px !important;
-  text-align: center;
-}
-
-/* Fixed-Width Reserved Sort Arrows (Prevents Width Shifts) */
-.sort-arrow {
-  display: inline-block;
-  width: 12px;
-  margin-left: 4px;
-  font-size: 0.75rem;
-  text-align: center;
-  color: #a855f7;
-}
-
-.sort-arrow.inactive {
-  visibility: hidden; /* Takes up exact same width, but stays invisible */
-}
-
-/* Drag Handle & Row States */
-tr[draggable="true"] {
-  cursor: grab;
-  transition: background-color 0.15s ease, opacity 0.15s ease;
-}
-
-tr[draggable="true"]:active {
-  cursor: grabbing;
-}
-
-tr.is-dragging {
-  opacity: 0.35;
-  background-color: #27272a !important;
-  border: 1px dashed #a855f7;
-}
-
-.drag-handle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  user-select: none;
-}
-
-.drag-icon {
-  font-size: 0.75rem;
-  color: #52525b;
-  cursor: grab;
-}
-
-tr:hover .drag-icon {
-  color: #a855f7;
-}
-
-.sort-hint {
-  font-size: 0.7rem;
-  color: #71717a;
-  margin-left: 4px;
-}
-
-/* Header Sort Highlighting */
-.sortable-th .sort-hint {
-  display: inline-block;
-  margin-left: 4px;
-  font-size: 0.75rem;
-  color: #52525b;
-  transition: color 0.15s ease;
-}
-
-.sortable-th.active-sort {
-  color: #a855f7;
-  font-weight: 700;
-}
-
-.sortable-th.active-sort .sort-hint {
-  color: #a855f7;
-}
-
-/* Drag Handle Styling */
-tr[draggable="true"] {
-  cursor: grab;
-}
-
-tr[draggable="true"]:active {
-  cursor: grabbing;
-}
-
-tr.is-dragging {
-  opacity: 0.3;
-  background-color: #27272a !important;
-}
-
-.drag-icon {
-  font-size: 0.75rem;
-  color: #52525b;
-  user-select: none;
-}
-
-tr:hover .drag-icon {
-  color: #a855f7;
-}
-
-/* Div-Based Grid Table Layout */
+/* ==========================================================================
+   4. DIV-GRID TABLE STRUCTURE & COLUMNS
+   ========================================================================== */
 .grid-table-container {
   display: flex;
   flex-direction: column;
@@ -557,7 +177,9 @@ tr:hover .drag-icon {
 }
 
 .grid-table-header {
-  display: flex;
+  display: grid;
+  /* User Template: [# Seq] [Label] [Reading] [Meaning] [Priority] [Actions] */
+  grid-template-columns: 50px 0.8fr 0.6fr 1.4fr 140px 140px;
   align-items: center;
   background-color: #18181b;
   border-bottom: 1px solid #27272a;
@@ -568,29 +190,41 @@ tr:hover .drag-icon {
 }
 
 .grid-table-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 50px 0.8fr 0.6fr 1.4fr 140px 140px;
   align-items: center;
   border-bottom: 1px solid #18181b;
   background-color: #09090b;
   transition: background-color 0.15s ease, opacity 0.15s ease;
-  cursor: grab;
+  cursor: default !important; /* Baris biasa memakai cursor normal */
 }
 
 .grid-table-row:hover {
   background-color: #121215;
 }
 
-.grid-table-row:active {
-  cursor: grabbing;
+.grid-table-row.is-dragging,
+.grid-table-row.is-holding {
+  opacity: 0.3;
+  background-color: #27272a !important;
+  border-left: 3px solid #a855f7;
 }
 
-.grid-table-row.is-dragging {
-  opacity: 0.25;
-  background-color: #27272a;
-  border: 1px dashed #a855f7;
+.grid-table-row.is-drag-over {
+  border-top: 2px solid #a855f7;
+  background-color: #18181b;
 }
 
-/* Rigid Column Width Alignment */
+.empty-grid-row {
+  padding: 24px;
+  text-align: center;
+  color: #71717a;
+  font-size: 0.85rem;
+}
+
+/* ==========================================================================
+   5. GRID CELL ALIGNMENTS & CONTENT
+   ========================================================================== */
 .grid-cell {
   padding: 10px 12px;
   display: flex;
@@ -599,67 +233,31 @@ tr:hover .drag-icon {
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 0.85rem;
+  user-select: none;
 }
 
-.cell-seq {
-  width: 60px;
-  min-width: 60px;
+/* Column 1: Index / Sequence Drag Handle */
+.grid-cell.cell-seq.drag-handle {
   justify-content: flex-start;
   gap: 6px;
   color: #71717a;
+  cursor: grab !important; /* Hanya index handle yang bisa drag */
 }
 
-.cell-label {
-  flex: 2;
-  min-width: 180px;
+.grid-cell.cell-seq.drag-handle:active {
+  cursor: grabbing !important;
 }
 
-.cell-reading {
-  flex: 2;
-  min-width: 150px;
-}
-
-.cell-meaning {
-  flex: 3;
-  min-width: 220px;
-}
-
-.cell-type {
-  width: 110px;
-  min-width: 110px;
-}
-
-.cell-priority {
-  width: 110px;
-  min-width: 110px;
-}
-
-.cell-actions {
-  width: 100px;
-  min-width: 100px;
-  justify-content: center;
-}
-
-/* Sorting Header Highlighting */
-.grid-cell.sortable {
-  cursor: pointer;
-}
-
-.grid-cell.sortable:hover {
-  color: #a855f7;
-}
-
-.grid-cell.active-sort {
-  color: #a855f7;
-  font-weight: 700;
-}
-
-.sort-hint {
-  margin-left: 4px;
+.drag-icon {
   font-size: 0.75rem;
+  color: #3f3f46;
 }
 
-/* Kanji Word + Creation Age Badge Styling */
+.grid-table-row:hover .drag-icon {
+  color: #a855f7;
+}
+
+/* Column 2: Kanji Word Label & Age Badge */
 .label-wrapper {
   display: flex;
   align-items: center;
@@ -683,63 +281,213 @@ tr:hover .drag-icon {
   margin-left: 8px;
 }
 
-/* Drag Icon Visual */
-.drag-icon {
-  font-size: 0.75rem;
-  color: #3f3f46;
-  user-select: none;
+/* Column 5: Priority Status Cell */
+.grid-cell.cell-priority {
+  justify-content: center;
 }
 
-.grid-table-row:hover .drag-icon {
+/* Column 6: Action Buttons Cell */
+.grid-cell.cell-actions {
+  justify-content: flex-end;
+  padding-right: 12px; /* Margin kanan halus agar tidak nempel border window */
+  overflow: visible;
+}
+
+/* Header Sort Highlighting */
+.grid-cell.sortable {
+  cursor: pointer;
+}
+
+.grid-cell.sortable:hover {
   color: #a855f7;
 }
 
-.empty-grid-row {
-  padding: 24px;
+.grid-cell.active-sort {
+  color: #a855f7;
+  font-weight: 700;
+}
+
+.sort-hint {
+  margin-left: 4px;
+  font-size: 0.75rem;
+}
+
+/* ==========================================================================
+   6. BADGES, BUTTONS & INLINE EDITING
+   ========================================================================== */
+.priority-badge,
+.priority-chip {
+  padding: 4px 8px;
+  min-height: 22px;
+  font-size: 0.7rem;
+  font-weight: 600;
   text-align: center;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s ease, filter 0.15s ease;
+}
+
+.priority-chip:hover,
+.priority-badge.clickable:hover {
+  filter: brightness(1.2);
+  transform: scale(1.04);
+}
+
+.priority-badge.hard,
+.priority-chip.hard {
+  background-color: #2a1205;
+  color: #f97316;
+  border: 1px solid #7c2d12;
+}
+
+.priority-badge.review,
+.priority-chip.review {
+  background-color: #0f0e26;
+  color: #818cf8;
+  border: 1px solid #3730a3;
+}
+
+.priority-badge.settled,
+.priority-chip.settled {
+  background-color: #021a12;
+  color: #34d399;
+  border: 1px solid #065f46;
+}
+
+.action-btn-group,
+.edit-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.btn-edit {
+  height: 24px;
+  background: transparent;
+  border: 1px solid #3f3f46;
+  color: #a1a1aa;
+  padding: 0 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-edit:hover {
+  color: #ffffff;
+  border-color: #6366f1;
+}
+
+.btn-save {
+  height: 24px;
+  background-color: #10b981;
+  border: none;
+  color: #ffffff;
+  padding: 0 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.btn-cancel-edit {
+  height: 24px;
+  background-color: #27272a;
+  border: none;
+  color: #a1a1aa;
+  padding: 0 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.btn-delete {
+  background: transparent;
+  border: none;
   color: #71717a;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  vertical-align: middle;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.btn-delete:hover {
+  color: #ef4444;
+  background-color: #27272a;
+}
+
+.inline-edit-input {
+  background-color: #09090b;
+  border: 1px solid #6366f1;
+  color: #ffffff;
+  padding: 4px 6px;
+  border-radius: 4px;
   font-size: 0.85rem;
+  width: 100%;
 }
 
-/* Drag & Drop Visual Indication */
-.grid-table-row[draggable="true"] {
-  cursor: grab;
-  user-select: none;
+/* ==========================================================================
+   DYNAMIC GRID LAYOUT PER TAB
+   ========================================================================== */
+/* Force strict Grid display & prevent line wrapping */
+.grid-table-header,
+.grid-table-row {
+  display: grid !important;
+  align-items: center;
+  width: 100%;
+  white-space: nowrap;
 }
 
-.grid-table-row[draggable="true"]:active {
-  cursor: grabbing;
+/* 1. Default Tab (Lexical & Grammar: 6 Cols) */
+.grid-workbench.tab-lexical .grid-table-header,
+.grid-workbench.tab-lexical .grid-table-row,
+.grid-workbench.tab-grammar .grid-table-header,
+.grid-workbench.tab-grammar .grid-table-row {
+  grid-template-columns: 50px 0.8fr 0.6fr 1.4fr 140px 140px !important;
 }
 
-.grid-table-row.is-dragging {
-  opacity: 0.3;
-  background-color: #27272a !important;
-  border-left: 3px solid #a855f7;
+/* 2. Dictionary Index Tab (7 Cols) */
+.grid-workbench.tab-dict_index .grid-table-header,
+.grid-workbench.tab-dict_index .grid-table-row {
+  grid-template-columns: 50px 0.8fr 0.6fr 1.2fr 100px 120px 130px !important;
 }
 
-/* Cursor override to force pointer/grab in WebKit */
+/* 3. Domain Hubs Tab (3 Cols) */
+.grid-workbench.tab-domain_hub .grid-table-header,
+.grid-workbench.tab-domain_hub .grid-table-row {
+  grid-template-columns: 50px 1fr 140px !important;
+}
+
+/* Ensure cell doesn't flex-wrap internally */
 .grid-cell {
-  user-select: none;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Drag Handle Grip */
-.drag-handle {
-  cursor: grab;
-  user-select: none;
-}
-
-.drag-handle:active {
-  cursor: grabbing;
-}
-
-/* Row states during pointer move */
-.grid-table-row.is-holding {
-  opacity: 0.35;
-  background-color: #27272a !important;
-  border-left: 3px solid #a855f7;
-}
-
-.grid-table-row.is-drag-over {
-  border-top: 2px solid #a855f7;
-  background-color: #18181b;
+.grid-cell.cell-seq {
+  flex-direction: row !important; /* Force horizontal */
+  justify-content: flex-start;
+  gap: 6px;
 }
