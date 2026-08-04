@@ -9,6 +9,7 @@ import "./App.css";
 
 export default function App() {
   const [activeWorkspace, setActiveWorkspace] = useState<"GRID" | "GRAPH">("GRID");
+  const [activeTab, setActiveTab] = useState<"LEXICAL" | "GRAMMAR" | "DOMAIN_HUB" | "DICT_INDEX">("LEXICAL");
   const [nodes, setNodes] = useState<NodeEntity[]>([]);
   const [edges, setEdges] = useState<EdgeEntity[]>([]);
 
@@ -59,6 +60,8 @@ export default function App() {
       <Sidebar
         activeWorkspace={activeWorkspace}
         onSelectWorkspace={(ws) => setActiveWorkspace(ws)}
+        activeTab={activeTab}
+        onSelectLens={(lens) => setActiveTab(lens)}
         nodeStats={nodeStats}
         onOpenAbout={() => setIsAboutOpen(true)}
         onQuitApp={handleQuitApp}
@@ -72,6 +75,8 @@ export default function App() {
             onNodesChange={setNodes}
             onEdgesChange={setEdges}
             onInspectNode={(node) => setInspectedNode(node)}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
           />
         ) : (
           <GraphCanvas
@@ -86,8 +91,11 @@ export default function App() {
       {/* 3. Global Inspector Drawer (Grid View Preview) */}
       <InspectorDrawer
         node={inspectedNode}
+        allNodes={nodes}
+        allEdges={edges}
         onClose={() => setInspectedNode(null)}
-        onFocusInGraph={() => {
+        onNodesChange={setNodes}
+        onSwitchToGraphAndFocus={() => {
           setActiveWorkspace("GRAPH");
           setInspectedNode(null);
         }}

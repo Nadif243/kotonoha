@@ -19,6 +19,8 @@ interface GridViewProps {
   onNodesChange: (nodes: NodeEntity[]) => void;
   onEdgesChange?: (edges: any[]) => void;
   onInspectNode?: (node: NodeEntity) => void;
+  activeTab?: TabType;
+  onTabChange?: (tab: TabType) => void;
 }
 
 type TabType = "LEXICAL" | "GRAMMAR" | "DOMAIN_HUB" | "DICT_INDEX";
@@ -30,9 +32,12 @@ export default function GridView({
   onNodesChange,
   onEdgesChange,
   onInspectNode,
+  activeTab: externalActiveTab,
+  onTabChange,
 }: GridViewProps) {
   // Navigation Tab State
-  const [activeTab, setActiveTab] = useState<TabType>("LEXICAL");
+  const [internalTab, setInternalTab] = useState<TabType>("LEXICAL");
+  const activeTab = externalActiveTab || internalTab;
 
   // Form input states
   const [label, setLabel] = useState("");
@@ -203,7 +208,12 @@ export default function GridView({
 
   // Sync Form Domain Type when Tab Changes
   const handleTabChange = (tab: TabType) => {
-    setActiveTab(tab);
+    if (onTabChange) {
+      onTabChange(tab);
+    } else {
+      setInternalTab(tab);
+    }
+
     if (tab !== "DICT_INDEX") {
       setDomainType(tab);
     }
