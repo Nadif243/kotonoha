@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import cytoscape, { Core } from "cytoscape";
 import { NodeEntity, EdgeEntity } from "../types/database";
 import {
-  insertEdge,
   deleteEdge,
   checkEdgeConflict,
   getAllEdges,
@@ -10,6 +9,7 @@ import {
   parseNodeNotes,
   updateNodeNotes,
   NoteItem,
+  insertEdge,
 } from "../core/db";
 import { speakJapanese } from "../core/tts";
 import {
@@ -18,6 +18,31 @@ import {
   IndividualKanjiInfo,
 } from "../core/enrichment";
 import "./GraphCanvas.css";
+
+// 1. Mapping Asset PNG berdasarkan Kombinasi Domain & Priority Status
+const getAssetUrl = (domain: string, priority: string): string => {
+  const statusKey = priority === "HIGH" ? "hard" : priority.toLowerCase();
+  const domainKey = domain === "DOMAIN_HUB" ? "hub" : domain.toLowerCase();
+  return `/assets/nodes/${domainKey}-${statusKey}.png`;
+};
+
+// 2. Helper Regex & Multi-line Text Processor
+const KANJI_REGEX = /[\u4e00-\u9faf\u3400-\u4dbf]/;
+const hasKanji = (text: string) => KANJI_REGEX.test(text);
+
+const formatNodeLabel = (node: NodeEntity): string => {
+  if (node.domain_type === "DOMAIN_HUB") {
+    return node.label;
+  }
+
+  if (hasKanji(node.label) && node.reading) {
+    // 2 Baris: Furigana di atas, Kanji di bawah
+    return `${node.reading}\n${node.label}`;
+  }
+
+  // 1 Baris: Hiragana/English saja
+  return node.label;
+};
 
 interface GraphCanvasProps {
   nodes: NodeEntity[];
@@ -67,7 +92,7 @@ export default function GraphCanvas({
     edgesRef.current = edges;
   }, [nodes, edges]);
 
-  // Global ESC keydown listener to close Docked Panel in Canvas View
+  // Global ESC keydown listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -263,91 +288,103 @@ export default function GraphCanvas({
     const cy = cytoscape({
       container: containerRef.current,
       autounselectify: true,
+      boxSelectionEnabled: false,
       elements: [],
       style: [
+        {
+          selector: "core",
+          style: {
+            "active-bg-opacity": 0,
+            "active-bg-size": 0,
+          },
+        },
         // Base Node Style
         {
           selector: "node",
           style: {
-            label: "data(label)",
-            color: "#f4f4f5",
+            label: "data(displayLabel)",
+            color: "#ffffff",
             "font-size": "11px",
             "font-family": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
             "text-valign": "center",
             "text-halign": "center",
             "text-wrap": "wrap",
-            "text-max-width": "70px",
-            "border-width": 2,
-            "border-color": "#27272a",
-            "background-color": "#18181b",
-            transition: "property: opacity, border-color, background-color; duration: 0.2s;",
+            "background-color": "#ffffff",
+            "background-opacity": 0,
+            "background-image": "data(bgAsset)",
+            "background-fit": "contain",
+            "background-clip": "node",
+
+            shape: "rectangle", // Pakai rectangle biasa (shape ditentukan oleh PNG kamu)
+            width: "92px",
+            height: "46px",
+
+            // Matikan semua efek box & shadow bawaan Cytoscape
+            "border-width": 0,
+            "overlay-opacity": 0, // Hilangkan dark box pas node di-grab (Img 1)
+            "active-bg-opacity": 0,
+
+            transition: "property: opacity; duration: 0.2s;",
           },
         },
-        // Domain Shapes
+
+        // EXACT HITBOX & SHAPE OVERRIDES PER DOMAIN TYPE
+
+        // A. LEXICAL
         {
-          selector: 'node[domain = "LEXICAL"]',
-          style: { shape: "ellipse" },
-        },
-        {
-          selector: 'node[domain = "GRAMMAR"]',
-          style: {
+            selector: 'node[domain = "LEXICAL"]',
+            style: {
             shape: "round-rectangle",
-            "border-color": "#3b82f6",
-            "background-color": "#0f172a",
-            width: 52,
-            height: 40,
-          },
+            width: "56px",
+            height: "38px",
+            },
+        },
+
+        // B. GRAMMAR
+        {
+            selector: 'node[domain = "GRAMMAR"]',
+            style: {
+            shape: "round-rectangle",
+            width: "56px",
+            height: "38px",
+            },
+        },
+
+        // C. DOMAIN HUB
+        {
+            selector: 'node[domain = "DOMAIN_HUB"]',
+            style: {
+            shape: "round-rectangle",
+            width: "90px",
+            height: "44px",
+            },
+        },
+
+        // PRIORITY-BASED OPACITY DIMMING (Asset + Text)
+        {
+            selector: 'node[priority = "HARD"]',
+            style: {
+            opacity: 1, // Brightest target
+            },
         },
         {
-          selector: 'node[domain = "DOMAIN_HUB"]',
-          style: {
-            shape: "diamond",
-            "border-color": "#a855f7",
-            "background-color": "#2e1065",
-            width: 64,
-            height: 64,
-            "font-weight": "bold",
-          },
-        },
-        // Priority Overrides for Lexical / Grammar Nodes
-        {
-          selector: 'node[domain != "DOMAIN_HUB"][priority = "HARD"]',
-          style: {
-            width: 58,
-            height: 58,
-            "border-color": "#f97316",
-            "border-width": 2.5,
-            "background-color": "#2a1205",
-            "font-weight": "bold",
-            "font-size": "12px",
-          },
+            selector: 'node[priority = "REVIEW"]',
+            style: {
+            opacity: 0.6, // Medium attention
+            },
         },
         {
-          selector: 'node[domain != "DOMAIN_HUB"][priority = "REVIEW"]',
-          style: {
-            width: 46,
-            height: 46,
-            "border-color": "#6366f1",
-            "background-color": "#0f0e26",
-          },
-        },
-        {
-          selector: 'node[domain != "DOMAIN_HUB"][priority = "SETTLED"]',
-          style: {
-            width: 36,
-            height: 36,
-            "border-color": "#10b981",
-            "background-color": "#021a12",
-            "font-size": "9.5px",
-            color: "#a1a1aa",
-          },
+            selector: 'node[priority = "SETTLED"]',
+            style: {
+            opacity: 0.2, // Subtle/Backgrounded
+            },
         },
         {
           selector: "node.highlighted",
           style: {
-            "border-width": 3,
-            "border-color": "#ffffff",
-            "background-color": "#3f3f46",
+            "border-width": 0,
+            "overlay-opacity": 0,
+            opacity: 1,
           },
         },
         // Edge Base Styling
@@ -355,38 +392,36 @@ export default function GraphCanvas({
           selector: "edge",
           style: {
             width: 1.5,
-            "line-color": "#3f3f46",
+            "line-color": "#52525b",
             "curve-style": "bezier",
             label: "data(label)",
-            color: "#a1a1aa",
-            "font-size": "8px",
+            color: "#d4d4d8",
+            "font-size": "9px",
             "text-rotation": "autorotate",
             "text-margin-y": -6,
-            "text-background-color": "#09090b",
-            "text-background-opacity": 0.85,
-            "text-background-padding": "2px",
-            "text-border-radius": "2px",
+            "text-background-opacity": 0,
+
+            "overlay-opacity": 0,
             transition: "property: opacity, line-color; duration: 0.2s;",
           },
         },
-        // Symmetric Relations (Bidirectional Arrows)
+        // Directional & Symmetric Arrow Shapes
         {
           selector: 'edge[label = "SYNONYM"], edge[label = "OPPOSITE"], edge[label = "SIMILAR_KANJI"]',
           style: {
             "source-arrow-shape": "vee",
             "target-arrow-shape": "vee",
-            "source-arrow-color": "#52525b",
-            "target-arrow-color": "#52525b",
+            "source-arrow-color": "#71717a",
+            "target-arrow-color": "#71717a",
           },
         },
-        // Directional Relations (Asymmetric Arrow pointing to Target)
         {
           selector: 'edge[label = "TRANSITIVE_PAIR"], edge[label = "USES_GRAMMAR"], edge[label = "BELONGS_TO_HUB"]',
           style: {
             "source-arrow-shape": "none",
             "target-arrow-shape": "vee",
             "target-arrow-color": "#a855f7",
-            "line-color": "#52525b",
+            "line-color": "#71717a",
           },
         },
         // Mutual Hub Relations
@@ -400,10 +435,10 @@ export default function GraphCanvas({
             "line-color": "#a855f7",
           },
         },
-        // Spotlight Dimming Rules
+        // Spotlight Dimming
         {
           selector: ".dimmed",
-          style: { opacity: 0.15 },
+          style: { opacity: 0.1 },
         },
         {
           selector: "node.spotlight",
@@ -412,7 +447,7 @@ export default function GraphCanvas({
       ],
     });
 
-    // TAP LISTENER WITH BOTH DOUBLE-TAP TIME DELTA & SHIFT-CLICK / RIGHT-CLICK FALLBACKS
+    // TAP LISTENER
     cy.on("tap", "node", (evt) => {
       const clickedNodeId = evt.target.id();
       const now = Date.now();
@@ -537,7 +572,8 @@ export default function GraphCanvas({
             group: "nodes",
             data: {
               id: node.id,
-              label: `${node.label}\n${node.reading || ""}`,
+              displayLabel: formatNodeLabel(node),
+              bgAsset: getAssetUrl(node.domain_type, node.priority_status),
               priority: node.priority_status || "REVIEW",
               domain: node.domain_type || "LEXICAL",
             },

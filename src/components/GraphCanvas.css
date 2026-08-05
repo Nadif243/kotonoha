@@ -9,6 +9,15 @@
   position: relative;
   background-color: #0c0c0e;
   overflow: hidden;
+
+  /* Background texture overlay */
+  background-image: url('/assets/nodes/background.png');
+  background-size: cover;
+  background-position: center;
+
+  /* Remove selection effect */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* Cytoscape Canvas Render Box */
@@ -20,6 +29,8 @@
   height: 100%;
   opacity: 0;
   transition: opacity 0.15s ease-in-out;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .cytoscape-canvas.ready {
