@@ -1,5 +1,6 @@
 import Database from "@tauri-apps/plugin-sql";
 import { NodeEntity, EdgeEntity, DomainType, PriorityStatus } from "../types/database";
+import { EnrichmentPayload } from "./enrichment";
 
 let dbInstance: Database | null = null;
 
@@ -309,6 +310,7 @@ export interface NoteItem {
 
 export interface NodeAttributes {
   notes?: NoteItem[];
+  enrichment_data?: EnrichmentPayload;
   personal_context?: string; // Legacy fallback
   enriched?: boolean;
   jlpt_level?: string;

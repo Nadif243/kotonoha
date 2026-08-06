@@ -16,6 +16,7 @@ import {
   enrichAndCacheNode,
   EnrichmentPayload,
   IndividualKanjiInfo,
+  SenseDefinition,
 } from "../core/enrichment";
 import "./GraphCanvas.css";
 
@@ -162,10 +163,14 @@ export default function GraphCanvas({
     setSourceNode(null);
   };
 
+  // Save active inspected ref node ID used by user
+  const activeInspectedIdRef = useRef<string | null>(null);
+
   // Open Local Canvas Inspector Panel
   const openCanvasInspector = async (nodeId: string) => {
     const targetNode = nodesRef.current.find((n) => n.id === nodeId);
     if (targetNode) {
+      activeInspectedIdRef.current = nodeId; // Set node active
       setInspectedNode(targetNode);
       setNoteList(parseNodeNotes(targetNode.attributes));
       setNewNoteInput("");
@@ -174,7 +179,8 @@ export default function GraphCanvas({
       // Auto-enrich in background if online & not yet cached
       try {
         const enrichedNode = await enrichAndCacheNode(nodeId);
-        if (enrichedNode) {
+
+        if (enrichedNode && activeInspectedIdRef.current === nodeId) {
           setInspectedNode(enrichedNode);
           const updatedNodes = await getAllNodes();
           onNodesChange(updatedNodes);
@@ -315,13 +321,12 @@ export default function GraphCanvas({
             "background-fit": "contain",
             "background-clip": "node",
 
-            shape: "rectangle", // Pakai rectangle biasa (shape ditentukan oleh PNG kamu)
+            shape: "rectangle",
             width: "92px",
             height: "46px",
 
-            // Matikan semua efek box & shadow bawaan Cytoscape
             "border-width": 0,
-            "overlay-opacity": 0, // Hilangkan dark box pas node di-grab (Img 1)
+            "overlay-opacity": 0,
             "active-bg-opacity": 0,
 
             transition: "property: opacity; duration: 0.2s;",
@@ -332,52 +337,52 @@ export default function GraphCanvas({
 
         // A. LEXICAL
         {
-            selector: 'node[domain = "LEXICAL"]',
-            style: {
+          selector: 'node[domain = "LEXICAL"]',
+          style: {
             shape: "round-rectangle",
             width: "56px",
             height: "38px",
-            },
+          },
         },
 
         // B. GRAMMAR
         {
-            selector: 'node[domain = "GRAMMAR"]',
-            style: {
+          selector: 'node[domain = "GRAMMAR"]',
+          style: {
             shape: "round-rectangle",
             width: "56px",
             height: "38px",
-            },
+          },
         },
 
         // C. DOMAIN HUB
         {
-            selector: 'node[domain = "DOMAIN_HUB"]',
-            style: {
+          selector: 'node[domain = "DOMAIN_HUB"]',
+          style: {
             shape: "round-rectangle",
             width: "90px",
             height: "44px",
-            },
+          },
         },
 
         // PRIORITY-BASED OPACITY DIMMING (Asset + Text)
         {
-            selector: 'node[priority = "HARD"]',
-            style: {
+          selector: 'node[priority = "HARD"]',
+          style: {
             opacity: 1, // Brightest target
-            },
+          },
         },
         {
-            selector: 'node[priority = "REVIEW"]',
-            style: {
+          selector: 'node[priority = "REVIEW"]',
+          style: {
             opacity: 0.6, // Medium attention
-            },
+          },
         },
         {
-            selector: 'node[priority = "SETTLED"]',
-            style: {
+          selector: 'node[priority = "SETTLED"]',
+          style: {
             opacity: 0.2, // Subtle/Backgrounded
-            },
+          },
         },
         {
           selector: "node.highlighted",
@@ -887,22 +892,103 @@ export default function GraphCanvas({
                         <span className="status-msg">No Kanji or dictionary match found for this entry.</span>
                       </div>
                     ) : (
-                      /* Success: Detailed Kanji Breakdown List */
-                      <div className="kanji-breakdown-list">
-                        {enrichmentData.kanji_list.map((item: IndividualKanjiInfo) => (
-                          <div key={item.kanji} className="kanji-item-card">
-                            <div className="kanji-main-badge">{item.kanji}</div>
-                            <div className="kanji-details">
-                              <div className="kanji-meta-row">
-                                <span className="kanji-tag jlpt">{item.jlpt}</span>
-                                <span className="kanji-tag strokes">{item.stroke_count} strokes</span>
+                      <div className="enrichment-content-wrapper">
+
+                        {/* 1. FETCHED DICTIONARY DEFINITIONS (Numbered with PoS) */}
+                        {enrichmentData.dictionary_senses && enrichmentData.dictionary_senses.length > 0 && (
+                          <div className="dictionary-senses-block">
+                            <span className="section-sub-title">Dictionary Definitions</span>
+
+                            {enrichmentData.dictionary_senses.map((sense: SenseDefinition, idx: number) => (
+                              <div key={idx} className="sense-item">
+                                {/* Part of Speech Tags */}
+                                {sense.parts_of_speech.length > 0 && (
+                                  <div className="pos-tags">
+                                    {sense.parts_of_speech.join(", ")}
+                                  </div>
+                                )}
+
+                                {/* Numbered Definition & See Also */}
+                                <div className="sense-definition-line">
+                                  <span className="sense-num">{idx + 1}.</span>
+                                  <span className="sense-text">
+                                    {sense.definitions.join("; ")}
+                                  </span>
+                                  {sense.see_also && (
+                                    <span className="see-also-tag">
+                                      See also <span className="see-also-link">{sense.see_also}</span>
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                              <div className="kanji-meanings">
-                                {item.meanings.length > 0 ? item.meanings.join(", ") : "No meaning"}
-                              </div>
-                            </div>
+                            ))}
                           </div>
-                        ))}
+                        )}
+
+                        {/* 2. KANJI IN THIS WORD BREAKDOWN */}
+                        {enrichmentData.kanji_list && enrichmentData.kanji_list.length > 0 && (
+                          <div className="kanji-breakdown-block">
+                            <span className="section-sub-title">
+                              Kanji in this word ({enrichmentData.kanji_list.length})
+                            </span>
+
+                            {enrichmentData.kanji_list.map((item: IndividualKanjiInfo) => (
+                              <div key={item.kanji} className="kanji-detail-card">
+                                {/* Top Meta Line: Strokes, JLPT, Grade */}
+                                <div className="kanji-meta-header">
+                                  {item.stroke_count || 0} strokes
+                                  {item.jlpt ? ` • ${item.jlpt}` : ""}
+                                  {item.grade ? ` • ${item.grade}` : ""}
+                                </div>
+
+                                {/* Kanji Glyph + Meanings */}
+                                <div className="kanji-main-row">
+                                  <div className="kanji-glyph">{item.kanji}</div>
+                                  <div className="kanji-meanings">
+                                    {item.meanings.length > 0 ? item.meanings.join(", ") : "No meaning"}
+                                  </div>
+                                </div>
+
+                                {/* Kun & On Readings */}
+                                <div className="kanji-readings-box">
+                                  {item.readings_kun && item.readings_kun.length > 0 && (
+                                    <div className="reading-row">
+                                      <span className="lbl">Kun:</span> {item.readings_kun.join("、 ")}
+                                    </div>
+                                  )}
+                                  {item.readings_on && item.readings_on.length > 0 && (
+                                    <div className="reading-row">
+                                      <span className="lbl">On:</span> {item.readings_on.join("、 ")}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Radical, Parts & Variants */}
+                                <div className="kanji-radical-box">
+                                  {item.radical && (
+                                    <div className="radical-row">
+                                      <span className="lbl">Radical:</span> {item.radical.meaning} ({item.radical.symbol})
+                                      {item.radical.forms && item.radical.forms.length > 0 && (
+                                        <span className="radical-forms"> ({item.radical.forms.join(", ")})</span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {item.radical?.parts && item.radical.parts.length > 0 && (
+                                    <div className="radical-row">
+                                      <span className="lbl">Parts:</span> {item.radical.parts.join(", ")}
+                                    </div>
+                                  )}
+                                  {item.radical?.variants && item.radical.variants.length > 0 && (
+                                    <div className="radical-row">
+                                      <span className="lbl">Variants:</span> {item.radical.variants.join(", ")}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         <div className="meta-card-footer">
                           <span className="status-dot success" />
                           <span>Enriched & Cached Locally</span>
