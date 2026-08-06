@@ -1,7 +1,6 @@
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+import { invoke } from "@tauri-apps/api/core";
 import { getDb, NodeAttributes } from "./db";
 import { NodeEntity } from "../types/database";
-import { invoke } from "@tauri-apps/api/core";
 
 export interface RadicalInfo {
   symbol: string;
@@ -35,32 +34,7 @@ export interface EnrichmentPayload {
   enriched_at?: string;
 }
 
-// Universal Fetcher: Utamakan Tauri Native Fetch (Bypass CORS 100%), fallback ke standard fetch
-async function safeFetch(url: string, timeoutMs = 4000): Promise<any> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    // 1. Coba Tauri Plugin HTTP (Native Rust Fetch - No CORS)
-    const res = await tauriFetch(url, { method: "GET", connectTimeout: timeoutMs });
-    clearTimeout(id);
-    if (res.ok) {
-      return await res.json();
-    }
-  } catch {
-    // 2. Fallback Standard Fetch jika tauriFetch tidak tersedia
-    try {
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(id);
-      if (res.ok) return await res.json();
-    } catch {
-      clearTimeout(id);
-    }
-  }
-  return null;
-}
-
-// 1. Fetch Word Definitions & Parts of Speech langsung dari Jisho
+// 1. Fetch Word Definitions & Parts of Speech
 async function fetchWordDefinitions(keyword: string): Promise<SenseDefinition[]> {
   try {
     const senses = await invoke<SenseDefinition[]>("fetch_jisho_word", { keyword });
@@ -71,55 +45,15 @@ async function fetchWordDefinitions(keyword: string): Promise<SenseDefinition[]>
   }
 }
 
-// 2. Fetch Detailed Kanji + Radical, Forms, Parts, & Variants dari Unofficial Jisho API
+// 2. Fetch Detailed Kanji + Radical, Forms, Parts, & Variants
 async function fetchSingleKanji(kanjiChar: string): Promise<IndividualKanjiInfo | null> {
-  const url = `https://unofficial-jisho-api.vercel.app/api/search/kanji/${encodeURIComponent(kanjiChar)}`;
-  const data = await safeFetch(url);
-
-  if (data && data.found) {
-    const formattedGrade = data.taughtIn ? `Grade ${data.taughtIn}` : undefined;
-
-    return {
-      kanji: kanjiChar,
-      jlpt: data.jlptLevel ? `JLPT ${data.jlptLevel.toUpperCase()}` : undefined,
-      grade: formattedGrade,
-      stroke_count: data.strokeCount || 0,
-      meanings: data.meaning ? data.meaning.split(",").map((s: string) => s.trim()) : [],
-      readings_kun: data.kunYomi || [],
-      readings_on: data.onYomi || [],
-      radical: {
-        symbol: data.radical?.symbol || kanjiChar,
-        meaning: data.radical?.meaning || "radical",
-        forms: data.radical?.forms ? `(${data.radical.forms.join(", ")})` : undefined,
-        parts: data.parts || [],
-        variants: data.variants || [],
-      },
-    };
+  try {
+    const kanjiDetail = await invoke<IndividualKanjiInfo | null>("fetch_jisho_kanji", { kanji: kanjiChar });
+    return kanjiDetail;
+  } catch (err) {
+    console.error("Rust Fetch Jisho Kanji Error:", err);
+    return null;
   }
-
-  // Fallback ke KanjiAPI.dev jika Unofficial Jisho Unreachable
-  const fallbackUrl = `https://kanjiapi.dev/v1/kanji/${encodeURIComponent(kanjiChar)}`;
-  const fallbackData = await safeFetch(fallbackUrl);
-
-  if (fallbackData) {
-    return {
-      kanji: kanjiChar,
-      jlpt: fallbackData.jlpt ? `N${fallbackData.jlpt}` : undefined,
-      grade: fallbackData.grade ? `Grade ${fallbackData.grade}` : undefined,
-      stroke_count: fallbackData.stroke_count || 0,
-      meanings: fallbackData.meanings || [],
-      readings_kun: fallbackData.kun_readings || [],
-      readings_on: fallbackData.on_readings || [],
-      radical: {
-        symbol: fallbackData.unicode_radical || kanjiChar,
-        meaning: fallbackData.radical_name || "main radical",
-        parts: fallbackData.parts || [],
-        variants: fallbackData.variants || [],
-      },
-    };
-  }
-
-  return null;
 }
 
 // Main Enrichment Pipeline
@@ -144,18 +78,25 @@ export async function enrichAndCacheNode(nodeId: string): Promise<NodeEntity | n
     attributes = {};
   }
 
-  // FORCE CLEAR CACHE RUSAK
+  // FORCE CLEAR BROKEN CACHE
   const existingEnrichment = attributes.enrichment_data as EnrichmentPayload | undefined;
-  const isCorruptedOrOldCache =
+
+  // Ask to re-enrichment if:
+  // 1. No cache enrichment yet.
+  // 2. Dictionary senses haven't been filled yet.
+  // 3. Kanji list hasn't been filled yet, OR there are kanji that do not yet have Radical Parts/Forms data.
+  const isIncompleteCache =
     !existingEnrichment ||
     !Array.isArray(existingEnrichment.dictionary_senses) ||
     existingEnrichment.dictionary_senses.length === 0 ||
+    !Array.isArray(existingEnrichment.kanji_list) ||
+    existingEnrichment.kanji_list.length === 0 ||
     existingEnrichment.kanji_list.some(
-      (k) => !k.radical?.parts || k.radical.parts.length === 0 || k.grade?.includes("Taught in")
+      (k) => !k.radical || k.radical.meaning === "radical" || k.radical.meaning === "main radical" ||  k.stroke_count === 0 || k.readings_kun.length === 0
     );
 
-  if (!isCorruptedOrOldCache && existingEnrichment) {
-    return node;
+  if (!isIncompleteCache && existingEnrichment) {
+    return node; // Hanya pakai cache jika DUA-DUANYA (Definitions & Radical Breakdown) sudah komplit!
   }
 
   const kanjiRegex = /[\u4e00-\u9faf]/g;

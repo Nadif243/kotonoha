@@ -938,7 +938,7 @@ export default function GraphCanvas({
                                 <div className="kanji-meta-header">
                                   {item.stroke_count || 0} strokes
                                   {item.jlpt ? ` • ${item.jlpt}` : ""}
-                                  {item.grade ? ` • ${item.grade}` : ""}
+                                  {item.grade ? ` • ${item.grade.replace(/grade\s+/gi, "Grade ")}` : ""}
                                 </div>
 
                                 {/* Kanji Glyph + Meanings */}
@@ -965,12 +965,9 @@ export default function GraphCanvas({
 
                                 {/* Radical, Parts & Variants */}
                                 <div className="kanji-radical-box">
-                                  {item.radical && (
+                                  {item.radical && item.radical.symbol && (
                                     <div className="radical-row">
-                                      <span className="lbl">Radical:</span> {item.radical.meaning} ({item.radical.symbol})
-                                      {item.radical.forms && item.radical.forms.length > 0 && (
-                                        <span className="radical-forms"> ({item.radical.forms.join(", ")})</span>
-                                      )}
+                                      <span className="lbl">Radical:</span> {item.radical.meaning} {item.radical.symbol} {item.radical.forms || ""}
                                     </div>
                                   )}
                                   {item.radical?.parts && item.radical.parts.length > 0 && (
