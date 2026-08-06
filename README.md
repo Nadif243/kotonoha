@@ -34,7 +34,13 @@ By treating the act of building and linking the database as the primary study me
 Kotonoha is built as a standalone, offline desktop app rather than a web service to provide a calm, dedicated workspace for better focus. While optimized for CJK and Japanese linguistics out of the box, its underlying schema is completely domain-agnostic—ready to be used for Physics, Systems Engineering, or general concept mapping.
 
 ---
+## readn'tme
 
+this a section for my own writings about this app. im including this cuz i feel like i do want to explain or describe things regarding this app with my own way of putting. cuz imma be real that all the contents in this readme as well as these codes are written by AI. but ofc im the one that lead the building of this app, vibe-codedly in many aspects. but the fact that i build this app for the reason of my need based on my purpose to learn japanese is actually there. all the technicalities to make this app real are helped by AI for sure knowing i am no expert in these tech stacks that are used here, altho i definitely understand most of the codes, files, and the reason of why theyre there. i hope so. what i meant is that im not sure if u want to ask me in technical aspects but im so down to discuss if this app intrigued anyone to use/develop.
+plus, the writings might glaze this app or maybe put other app/reference down to a degree. or it might not. but i definitely not inted to devaluate other tool to learn like anki. cuz for sure that app is goated as ev1 knows. its js i need more than js anki (and other source(s) like MNN etc) to learn this beautiful language. i need those vocabulary, ーwhich anki engraved them upon us flawlessly, i thinkー to be connected/related to many other words/context that i want to arrange them myself. not based on external explanation, definition, or context. but from my own self, from my own memory, to build that connection myself. thats why i put bloom taxonomy thingy that i learnt, shallowly, in writing this readme above, by the help of AI. but that idea surely comes from my will to create my own memory system where those vocabs and other aspects in learning this language lies in a single personally organized app.
+and as i always be having rly hard time summarizing evth on my mind to be packed into a decent and solid description of a thing. thus, i hope these paragraphs explain what this app is clearly.
+
+---
 ## Core Features
 
 ### Dual-View Architecture
