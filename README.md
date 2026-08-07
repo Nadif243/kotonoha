@@ -68,6 +68,18 @@ and as i always be having rly hard time summarizing evth on my mind to be packed
 
 ---
 
+### Active Development Roadmap
+
+**In Progress / Under Investigation**
+* **Organic Network Layout Engine:** Shifting node placement algorithms from rigid top-to-bottom matrix distribution to an organic, force-directed graph physics with persistence and spatial anchor points.
+
+**Future Development**
+* **Priority-Driven SRS Review Engine:** Smart flashcard/drill mode utilizing Spaced Repetition Algorithms based on node priority levels (`HARD`, `REVIEW`, `SETTLED`).
+* **Database Backup & Migration Tools:** Seamless import/export routines for SQLite snapshot backups and JSON payload extractions.
+* **Graph Canvas Analytics:** Visual statistics showing domain coverage, mastery ratios, and orphan node detectors.
+
+---
+
 ## System Architecture & Tech Stack
 
 * **Desktop Runtime:** [Tauri v2](https://tauri.app/) (Rust-backed runtime, ultra-lightweight ~30-50MB RAM footprint).
