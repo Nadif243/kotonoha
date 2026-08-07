@@ -6,12 +6,12 @@ let dbInstance: Database | null = null;
 
 /**
  * Gets or initializes the SQLite database connection.
- * Creates the 'nodes' and 'edges' tables if they don't exist.
+ * Creates the 'nodes' and 'edges' tables if they don't exist and migrates missing columns.
  */
 export async function getDb(): Promise<Database> {
   if (dbInstance) return dbInstance;
 
-  // Opens or creates 'kotonoha.db' inside the app data directory
+  // Opens or creates 'kotonoha_v1.db' inside the app data directory
   dbInstance = await Database.load("sqlite:kotonoha_v1.db");
 
   // Force foreign key enforcement for cascading deletions
@@ -27,10 +27,25 @@ export async function getDb(): Promise<Database> {
         domain_type TEXT NOT NULL,
         priority_status TEXT DEFAULT 'REVIEW',
         attributes TEXT,
+        pos_x REAL,
+        pos_y REAL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // Migration Check: Add pos_x and pos_y to existing SQLite databases gracefully
+  try {
+    await dbInstance.execute("ALTER TABLE nodes ADD COLUMN pos_x REAL;");
+  } catch {
+    // Column already exists
+  }
+
+  try {
+    await dbInstance.execute("ALTER TABLE nodes ADD COLUMN pos_y REAL;");
+  } catch {
+    // Column already exists
+  }
 
   // Create Edges table
   await dbInstance.execute(`
@@ -85,8 +100,8 @@ export async function checkDuplicateNode(
 export async function insertNode(node: Omit<NodeEntity, "created_at" | "updated_at">): Promise<void> {
   const db = await getDb();
   await db.execute(
-    `INSERT INTO nodes (id, label, reading, meaning_en, domain_type, priority_status, attributes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+    `INSERT INTO nodes (id, label, reading, meaning_en, domain_type, priority_status, attributes, pos_x, pos_y)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
     [
       node.id,
       node.label,
@@ -95,8 +110,36 @@ export async function insertNode(node: Omit<NodeEntity, "created_at" | "updated_
       node.domain_type,
       node.priority_status,
       node.attributes || null,
+      node.pos_x ?? null,
+      node.pos_y ?? null,
     ]
   );
+}
+
+/**
+ * Updates a single node's canvas coordinates (called on drag end).
+ */
+export async function updateNodePosition(id: string, posX: number, posY: number): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE nodes SET pos_x = $1, pos_y = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3;",
+    [posX, posY, id]
+  );
+}
+
+/**
+ * Batch updates multiple node positions (called after Auto-Organize physics run).
+ */
+export async function batchUpdateNodePositions(
+  positions: { id: string; x: number; y: number }[]
+): Promise<void> {
+  const db = await getDb();
+  for (const pos of positions) {
+    await db.execute(
+      "UPDATE nodes SET pos_x = $1, pos_y = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3;",
+      [pos.x, pos.y, pos.id]
+    );
+  }
 }
 
 /**
@@ -135,15 +178,8 @@ export async function checkEdgeConflict(
 ): Promise<{ hasError: boolean; message?: string }> {
   const db = await getDb();
 
-  // 1. Fetch Node Types
-  const sourceRes = await db.select<NodeEntity[]>(
-    "SELECT * FROM nodes WHERE id = $1",
-    [sourceId]
-  );
-  const targetRes = await db.select<NodeEntity[]>(
-    "SELECT * FROM nodes WHERE id = $1",
-    [targetId]
-  );
+  const sourceRes = await db.select<NodeEntity[]>("SELECT * FROM nodes WHERE id = $1", [sourceId]);
+  const targetRes = await db.select<NodeEntity[]>("SELECT * FROM nodes WHERE id = $1", [targetId]);
 
   if (sourceRes.length === 0 || targetRes.length === 0) {
     return { hasError: true, message: "One of the selected nodes no longer exists." };
@@ -155,7 +191,7 @@ export async function checkEdgeConflict(
   const sourceType = sourceNode.domain_type;
   const targetType = targetNode.domain_type;
 
-  // 2. Enforce Relation Compatibility Matrix
+  // Enforce Relation Compatibility Matrix
 
   //  A: Lexical Relations (LEXICAL <-> LEXICAL Only)
   const lexicalOnlyRelations = ["SIMILAR_KANJI", "SYNONYM", "OPPOSITE", "TRANSITIVE_PAIR"];
@@ -343,10 +379,7 @@ export function parseNodeNotes(attributesStr?: string): NoteItem[] {
 }
 
 // Function to update the notes array in a node's attributes JSON
-export async function updateNodeNotes(
-  id: string,
-  notes: NoteItem[]
-): Promise<void> {
+export async function updateNodeNotes(id: string, notes: NoteItem[]): Promise<void> {
   const db = await getDb();
 
   // Fetch current attributes to preserve other metadata fields
@@ -378,9 +411,7 @@ export async function updateNodeNotes(
 }
 
 // Add function to persist custom reordered list indices
-export async function updateNodesSortOrder(
-  orderedNodeIds: string[]
-): Promise<void> {
+export async function updateNodesSortOrder(orderedNodeIds: string[]): Promise<void> {
   const db = await getDb();
 
   // Execute batch updates for sort_index
@@ -399,9 +430,6 @@ export async function reorderNodes(orderedIds: string[]): Promise<void> {
   // Execute sequence updates
   for (let i = 0; i < orderedIds.length; i++) {
     const id = orderedIds[i];
-    await db.execute(
-      "UPDATE nodes SET updated_at = CURRENT_TIMESTAMP WHERE id = $1;",
-      [id]
-    );
+    await db.execute("UPDATE nodes SET updated_at = CURRENT_TIMESTAMP WHERE id = $1;", [id]);
   }
 }

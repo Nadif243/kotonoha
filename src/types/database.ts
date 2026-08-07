@@ -23,6 +23,10 @@ export interface NodeEntity {
   attributes?: string; // Stored as JSON string in SQLite
   created_at?: string;
   updated_at?: string;
+
+  // Dynamic Canvas Layout Persistence
+  pos_x?: number | null;
+  pos_y?: number | null;
 }
 
 export interface EdgeEntity {
