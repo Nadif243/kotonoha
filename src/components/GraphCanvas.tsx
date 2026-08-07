@@ -10,6 +10,7 @@ import {
   updateNodeNotes,
   NoteItem,
   insertEdge,
+  updateNodePosition,
 } from "../core/db";
 import { speakJapanese } from "../core/tts";
 import {
@@ -22,12 +23,12 @@ import "./GraphCanvas.css";
 
 // 1. Mapping Asset PNG berdasarkan Kombinasi Domain & Priority Status
 const getAssetUrl = (domain: string, priority: string): string => {
-  const statusKey = priority === "HIGH" ? "hard" : priority.toLowerCase();
+  const statusKey = priority.toLowerCase();
   const domainKey = domain === "DOMAIN_HUB" ? "hub" : domain.toLowerCase();
   return `/assets/nodes/${domainKey}-${statusKey}.png`;
 };
 
-// 2. Helper Regex & Multi-line Text Processor
+// 2. Helper Regex
 const KANJI_REGEX = /[\u4e00-\u9faf\u3400-\u4dbf]/;
 const hasKanji = (text: string) => KANJI_REGEX.test(text);
 
@@ -278,7 +279,7 @@ export default function GraphCanvas({
 
   const handleFitView = () => {
     if (!cyRef.current) return;
-    cyRef.current.fit(undefined, 40);
+    cyRef.current.fit(undefined, 60);
   };
 
   // INITIALIZE CANVAS & STYLESHEET
@@ -322,7 +323,7 @@ export default function GraphCanvas({
 
             // Zero padding to prevent parent container swell!
             "compound-sizing-wrt-labels": "exclude",
-            "padding": "0px",
+            padding: "0px",
 
             transition: "property: opacity; duration: 0.2s;",
           },
@@ -341,21 +342,21 @@ export default function GraphCanvas({
             "border-width": 0,
             "overlay-opacity": 0,
             "active-bg-opacity": 0,
-            "events": "no",
+            events: "no",
           },
         },
 
-        // HIGH/HARD PRIORITY POSITIONING
+        // HARD PRIORITY POSITIONING
         {
-          selector: 'node[priority = "HARD"][!isFuriganaOverlay], node[priority = "HIGH"][!isFuriganaOverlay]',
+          selector: 'node[priority = "HARD"][!isFuriganaOverlay]',
           style: { "font-size": "15px" },
         },
         {
-          selector: 'node[priority = "HARD"][?hasFuriganaChild], node[priority = "HIGH"][?hasFuriganaChild]',
+          selector: 'node[priority = "HARD"][?hasFuriganaChild]',
           style: { "text-margin-y": 6 }, // Push Kanji down ONLY IF furigana exists!
         },
         {
-          selector: 'node[priority = "HARD"][?isFuriganaOverlay], node[priority = "HIGH"][?isFuriganaOverlay]',
+          selector: 'node[priority = "HARD"][?isFuriganaOverlay]',
           style: { "font-size": "8px", "text-margin-y": -12 }, // Perfect 50% Furigana
         },
         {
@@ -399,7 +400,7 @@ export default function GraphCanvas({
           style: { width: "34px", height: "23px", opacity: 0.35 },
         },
 
-        // DOMAIN HUBS (Always Single Line Centered)
+        // DOMAIN HUBS
         {
           selector: 'node[domain = "DOMAIN_HUB"][priority = "HARD"]',
           style: { width: "115px", height: "56px", "font-size": "13px", opacity: 1 },
@@ -449,7 +450,6 @@ export default function GraphCanvas({
             "text-rotation": "autorotate",
             "text-margin-y": -5,
             "text-background-opacity": 0,
-
             "overlay-opacity": 0,
             transition: "property: opacity, line-color; duration: 0.2s;",
           },
@@ -531,6 +531,26 @@ export default function GraphCanvas({
       openCanvasInspector(evt.target.id());
     });
 
+    // DRAG-FREE PERSISTENCE HANDLER
+    cy.on("dragfree", "node[!isFuriganaOverlay]", async (evt) => {
+      const draggedNode = evt.target;
+      const cleanId = draggedNode.id().replace("_furigana", "");
+      const pos = draggedNode.position();
+
+      // Instantly sync local React ref memory
+      const matchInRef = nodesRef.current.find((n) => n.id === cleanId);
+      if (matchInRef) {
+        matchInRef.pos_x = pos.x;
+        matchInRef.pos_y = pos.y;
+      }
+
+      try {
+        await updateNodePosition(cleanId, pos.x, pos.y);
+      } catch (err) {
+        console.error("Failed to persist node position:", err);
+      }
+    });
+
     // Delete Link Handler
     cy.on("tap", "edge", async (evt) => {
       const edgeId = evt.target.id();
@@ -569,7 +589,7 @@ export default function GraphCanvas({
     };
   }, []);
 
-  // DYNAMIC DIFF UPDATER & COSE SEPARATION BALANCING
+  // DIFF UPDATER WITH PRESET COORDINATES & BIRTH PLACEMENT ENGINE
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy) return;
@@ -584,7 +604,7 @@ export default function GraphCanvas({
       if (activeLens === "HUB_MAP_ONLY") {
         return node.domain_type === "DOMAIN_HUB";
       }
-      return true; // ALL
+      return true;
     });
 
     const validNodeIds = new Set(lensFilteredNodes.map((n) => n.id));
@@ -597,7 +617,7 @@ export default function GraphCanvas({
       const currentCyNodes = new Set(cy.nodes().map((n) => n.id()));
       const incomingNodeIds = new Set(lensFilteredNodes.map((n) => n.id));
 
-      // Remove nodes no longer matching active lens
+      // Remove obsolete nodes
       cy.nodes().forEach((n) => {
         const cleanId = n.id().replace("_furigana", "");
         if (!incomingNodeIds.has(cleanId)) {
@@ -609,10 +629,55 @@ export default function GraphCanvas({
       const nodesToAdd = lensFilteredNodes.filter((n) => !currentCyNodes.has(n.id));
       if (nodesToAdd.length > 0) {
         const elementsToAdd: any[] = [];
+        const unpositionedToSave: { id: string; x: number; y: number }[] = [];
 
-        nodesToAdd.forEach((node) => {
+        nodesToAdd.forEach((node, index) => {
           const isHub = node.domain_type === "DOMAIN_HUB";
           const hasReading = hasKanji(node.label) && !!node.reading;
+
+          // Check if coordinates exist in SQLite
+          const hasStoredPos =
+            typeof node.pos_x === "number" && typeof node.pos_y === "number";
+
+          // Calculate Birth Coordinates for unpositioned nodes
+          let initialPos: { x: number; y: number };
+
+          if (hasStoredPos) {
+            initialPos = { x: node.pos_x!, y: node.pos_y! };
+          } else {
+            // Find attached Hub if present
+            const attachedHubEdge = safeEdges.find(
+              (e) =>
+                e.relation_type === "BELONGS_TO_HUB" &&
+                (e.source_node_id === node.id || e.target_node_id === node.id)
+            );
+
+            let centerTarget = { x: 150, y: 150 };
+
+            if (attachedHubEdge) {
+              const hubId =
+                attachedHubEdge.source_node_id === node.id
+                  ? attachedHubEdge.target_node_id
+                  : attachedHubEdge.source_node_id;
+              const hubCyNode = cy.$id(hubId);
+
+              if (hubCyNode.length > 0) {
+                centerTarget = hubCyNode.position();
+              }
+            }
+
+            // Deterministic non-overlapping spiral orbit placement
+            const goldenAngle = 2.39996; // Golden ratio angle in radians
+            const radius = 110 + index * 35;
+            const angle = index * goldenAngle;
+            initialPos = {
+              x: centerTarget.x + Math.cos(angle) * radius,
+              y: centerTarget.y + Math.sin(angle) * radius,
+            };
+
+            unpositionedToSave.push({ id: node.id, x: initialPos.x, y: initialPos.y });
+
+          }
 
           // 1. Main Kanji Node
           elementsToAdd.push({
@@ -626,6 +691,7 @@ export default function GraphCanvas({
               isFuriganaOverlay: false,
               hasFuriganaChild: !isHub && hasReading,
             },
+            position: initialPos,
           });
 
           // 2. Child Furigana Node
@@ -640,34 +706,22 @@ export default function GraphCanvas({
                 domain: node.domain_type || "LEXICAL",
                 isFuriganaOverlay: true,
               },
+              position: initialPos,
             });
           }
         });
 
         cy.add(elementsToAdd);
 
-        // Position layout for main nodes
-        const mainUnpositionedNodes = cy.nodes().filter(
-          (n) => !currentCyNodes.has(n.id()) && !n.data("isFuriganaOverlay")
-        );
+        // ALWAYS USE PRESET TO LOCK COORDINATES
+        cy.layout({ name: "preset" }).run();
 
-        mainUnpositionedNodes.layout({
-          name: "cose",
-          animate: false,
-          fit: true,
-          padding: 80,
-          nodeRepulsion: () => 180000,
-          idealEdgeLength: () => 140,
-          edgeElasticity: () => 100,
-          gravity: 0.25,
-          numIter: 1000,
-        }).run();
-
-        setTimeout(() => {
-          if (cyRef.current) {
-            cyRef.current.fit(undefined, 80);
-          }
-        }, 50);
+        // Save newly calculated birth positions to SQLite
+        if (unpositionedToSave.length > 0) {
+          unpositionedToSave.forEach((item) => {
+            updateNodePosition(item.id, item.x, item.y);
+          });
+        }
       }
 
       // Sync Edges
