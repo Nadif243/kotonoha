@@ -126,12 +126,16 @@ export default function GraphCanvas({
 
     // Expand neighborhood to include child furigana node
     const furiganaNode = cy.$id(`${focusedNodeId}_furigana`);
+    const connectedEdges = focusedNode.connectedEdges();
     const neighborhood = focusedNode.closedNeighborhood().union(furiganaNode);
 
     cy.batch(() => {
-      cy.elements().removeClass("dimmed").removeClass("spotlight");
+      cy.elements().removeClass("dimmed").removeClass("spotlight"); // Reset status
       cy.elements().difference(neighborhood).addClass("dimmed");
+
+      // Highlight directly connected node & edge
       neighborhood.addClass("spotlight");
+      connectedEdges.addClass("spotlight");
     });
   };
 
@@ -279,15 +283,8 @@ export default function GraphCanvas({
 
   const handleFitView = () => {
     if (!cyRef.current) return;
-    cyRef.current.fit(undefined, 100);
+    cyRef.current.fit(undefined, 70);
   };
-
-  // Auto-center camera with generous padding on initial load
-  setTimeout(() => {
-    if (cyRef.current) {
-      cyRef.current.fit(undefined, 100);
-    }
-  }, 50);
 
   // INITIALIZE CANVAS & STYLESHEET
   useEffect(() => {
@@ -421,16 +418,6 @@ export default function GraphCanvas({
           style: { width: "54px", height: "26px", "font-size": "7px", opacity: 0.35 },
         },
 
-        // SPOTLIGHT & HIGHLIGHT STYLING
-        {
-          selector: ".dimmed",
-          style: { opacity: 0.1 },
-        },
-        {
-          selector: "node.spotlight, node.highlighted",
-          style: { opacity: 1 },
-        },
-
         // STRICT Z-INDEX LAYER HIERARCHY
         { selector: 'node[domain = "LEXICAL"][priority = "HARD"]', style: { "z-index": 90 } },
         { selector: 'node[domain = "LEXICAL"][priority = "REVIEW"]', style: { "z-index": 80 } },
@@ -448,20 +435,36 @@ export default function GraphCanvas({
         {
           selector: "edge",
           style: {
-            width: 1.5,
-            "line-color": "#52525b",
+            width: 1.2,
+            opacity: 0.45,
+            "line-color": "#71717a",
             "curve-style": "bezier",
             label: "data(label)",
-            color: "#d4d4d8",
+            color: "#a1a1aa",
             "font-size": "6px",
             "text-rotation": "autorotate",
             "text-margin-y": -5,
             "text-background-opacity": 0,
             "overlay-opacity": 0,
-            transition: "property: opacity, line-color; duration: 0.2s;",
+            transition: "property: opacity, line-color, width; duration: 0.2s;",
           },
         },
-        // Directional & Symmetric Arrow Shapes
+
+        // Dynamic Edge Opacity based on Priority Hierarchy
+        {
+          selector: 'edge[minPriority = "HARD"]',
+          style: { opacity: 0.9, width: 1.8, "line-color": "#a1a1aa" },
+        },
+        {
+          selector: 'edge[minPriority = "REVIEW"]',
+          style: { opacity: 0.75, width: 1.2, "line-color": "#71717a" },
+        },
+        {
+          selector: 'edge[minPriority = "SETTLED"]',
+          style: { opacity: 0.35, width: 0.8, "line-color": "#52525b" },
+        },
+
+        // Arrow shape styling
         {
           selector: 'edge[label = "SYNONYM"], edge[label = "OPPOSITE"], edge[label = "SIMILAR_KANJI"]',
           style: {
@@ -477,7 +480,6 @@ export default function GraphCanvas({
             "source-arrow-shape": "none",
             "target-arrow-shape": "vee",
             "target-arrow-color": "#a855f7",
-            "line-color": "#71717a",
           },
         },
         // Mutual Hub Relations
@@ -489,6 +491,35 @@ export default function GraphCanvas({
             "source-arrow-color": "#a855f7",
             "target-arrow-color": "#a855f7",
             "line-color": "#a855f7",
+          },
+        },
+
+        // SPOTLIGHT & HIGHLIGHT STYLING
+        {
+          selector: "node.dimmed",
+          style: { opacity: 0.08 },
+        },
+        {
+          selector: "edge.dimmed, edge[minPriority].dimmed",
+          style: {
+            opacity: 0.06,
+            "text-opacity": 0, // Hide edge labels when dimmed for extra cleanliness!
+           },
+        },
+        {
+          selector: "node.spotlight, node.highlighted",
+          style: { opacity: 1 },
+        },
+        {
+          selector: "edge.spotlight",
+          style: {
+            opacity: 1,
+            width: 2.2,
+            "line-color": "#a855f7",
+            "target-arrow-color": "#a855f7",
+            "source-arrow-color": "#a855f7",
+            "text-opacity": 0.9,
+            "z-index": 999,
           },
         },
       ],
@@ -615,6 +646,7 @@ export default function GraphCanvas({
     });
 
     const validNodeIds = new Set(lensFilteredNodes.map((n) => n.id));
+    const nodePriorityMap = new Map(lensFilteredNodes.map((n) => [n.id, n.priority_status || "REVIEW"]));
 
     const safeEdges = (Array.isArray(edges) ? edges : []).filter(
       (e) => validNodeIds.has(e.source_node_id) && validNodeIds.has(e.target_node_id)
@@ -677,6 +709,7 @@ export default function GraphCanvas({
             const goldenAngle = 2.39996; // Golden ratio angle in radians
             const radius = 70 + index * 32;
             const angle = index * goldenAngle;
+
             initialPos = {
               x: centerTarget.x + Math.cos(angle) * radius,
               y: centerTarget.y + Math.sin(angle) * radius,
@@ -731,7 +764,7 @@ export default function GraphCanvas({
         }
       }
 
-      // Sync Edges
+      // Sync Edges with Priority Weights
       const currentCyEdges = new Set(cy.edges().map((e) => e.id()));
       const incomingEdgeIds = new Set(safeEdges.map((e) => e.id));
 
@@ -744,17 +777,41 @@ export default function GraphCanvas({
       const edgesToAdd = safeEdges.filter((e) => !currentCyEdges.has(e.id));
       if (edgesToAdd.length > 0) {
         cy.add(
-          edgesToAdd.map((edge) => ({
-            group: "edges",
-            data: {
-              id: edge.id,
-              source: edge.source_node_id,
-              target: edge.target_node_id,
-              label: edge.relation_type || "",
-            },
-          }))
+          edgesToAdd.map((edge) => {
+            const sourcePrio = nodePriorityMap.get(edge.source_node_id) || "REVIEW";
+            const targetPrio = nodePriorityMap.get(edge.target_node_id) || "REVIEW";
+
+            // Determine minimum priority weight for opacity calculation
+            let edgePrio: "HARD" | "REVIEW" | "SETTLED" = "SETTLED";
+
+            if (sourcePrio === "HARD" && targetPrio === "HARD") {
+              edgePrio = "HARD";
+            } else if (sourcePrio === "SETTLED" || targetPrio === "SETTLED") {
+              edgePrio = "SETTLED";
+            } else {
+              edgePrio = "REVIEW";
+            }
+
+            return {
+              group: "edges",
+              data: {
+                id: edge.id,
+                source: edge.source_node_id,
+                target: edge.target_node_id,
+                label: edge.relation_type || "",
+                minPriority: edgePrio,
+              },
+            };
+          })
         );
       }
+
+      // Center camera with generous padding
+      setTimeout(() => {
+        if (cyRef.current) {
+          cyRef.current.fit(undefined, 60);
+        }
+      }, 50);
     });
   }, [nodes, edges, activeLens]);
 
