@@ -31,20 +31,6 @@ const getAssetUrl = (domain: string, priority: string): string => {
 const KANJI_REGEX = /[\u4e00-\u9faf\u3400-\u4dbf]/;
 const hasKanji = (text: string) => KANJI_REGEX.test(text);
 
-const formatNodeLabel = (node: NodeEntity): string => {
-  if (node.domain_type === "DOMAIN_HUB") {
-    return node.label;
-  }
-
-  if (hasKanji(node.label) && node.reading) {
-    // 2 Baris: Furigana di atas, Kanji di bawah
-    return `${node.reading}\n${node.label}`;
-  }
-
-  // 1 Baris: Hiragana/English saja
-  return node.label;
-};
-
 interface GraphCanvasProps {
   nodes: NodeEntity[];
   edges: EdgeEntity[];
@@ -120,7 +106,10 @@ export default function GraphCanvas({
     cy.nodes().removeClass("highlighted");
 
     if (id) {
-      cy.$id(id).addClass("highlighted");
+      const target = cy.$id(id);
+      target.addClass("highlighted");
+      // Highlight child furigana node as well!
+      cy.$id(`${id}_furigana`).addClass("highlighted");
       applyNodeSpotlight(id);
     } else {
       clearNodeSpotlight();
@@ -134,7 +123,9 @@ export default function GraphCanvas({
     const focusedNode = cy.$id(focusedNodeId);
     if (!focusedNode.length) return;
 
-    const neighborhood = focusedNode.closedNeighborhood();
+    // Expand neighborhood to include child furigana node
+    const furiganaNode = cy.$id(`${focusedNodeId}_furigana`);
+    const neighborhood = focusedNode.closedNeighborhood().union(furiganaNode);
 
     cy.batch(() => {
       cy.elements().removeClass("dimmed").removeClass("spotlight");
@@ -168,9 +159,12 @@ export default function GraphCanvas({
 
   // Open Local Canvas Inspector Panel
   const openCanvasInspector = async (nodeId: string) => {
-    const targetNode = nodesRef.current.find((n) => n.id === nodeId);
+    // Standardize nodeId if clicked from child furigana node
+    const cleanId = nodeId.replace("_furigana", "");
+    const targetNode = nodesRef.current.find((n) => n.id === cleanId);
+
     if (targetNode) {
-      activeInspectedIdRef.current = nodeId; // Set node active
+      activeInspectedIdRef.current = cleanId; // Set node active
       setInspectedNode(targetNode);
       setNoteList(parseNodeNotes(targetNode.attributes));
       setNewNoteInput("");
@@ -178,9 +172,9 @@ export default function GraphCanvas({
 
       // Auto-enrich in background if online & not yet cached
       try {
-        const enrichedNode = await enrichAndCacheNode(nodeId);
+        const enrichedNode = await enrichAndCacheNode(cleanId);
 
-        if (enrichedNode && activeInspectedIdRef.current === nodeId) {
+        if (enrichedNode && activeInspectedIdRef.current === cleanId) {
           setInspectedNode(enrichedNode);
           const updatedNodes = await getAllNodes();
           onNodesChange(updatedNodes);
@@ -287,7 +281,7 @@ export default function GraphCanvas({
     cyRef.current.fit(undefined, 40);
   };
 
-  // INITIALIZE CANVAS
+  // INITIALIZE CANVAS & STYLESHEET
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -304,17 +298,17 @@ export default function GraphCanvas({
             "active-bg-size": 0,
           },
         },
-        // Base Node Style
+
+        // MAIN NODE BASE STYLING
         {
-          selector: "node",
+          selector: "node[!isFuriganaOverlay]",
           style: {
             label: "data(displayLabel)",
             color: "#ffffff",
-            "font-size": "11px",
             "font-family": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
             "text-valign": "center",
             "text-halign": "center",
-            "text-wrap": "wrap",
+            "text-margin-y": 0, // Default centered vertically for 1 line text
             "background-color": "#ffffff",
             "background-opacity": 0,
             "background-image": "data(bgAsset)",
@@ -322,77 +316,127 @@ export default function GraphCanvas({
             "background-clip": "node",
 
             shape: "rectangle",
-            width: "92px",
-            height: "46px",
-
             "border-width": 0,
             "overlay-opacity": 0,
             "active-bg-opacity": 0,
+
+            // Zero padding to prevent parent container swell!
+            "compound-sizing-wrt-labels": "exclude",
+            "padding": "0px",
 
             transition: "property: opacity; duration: 0.2s;",
           },
         },
 
-        // EXACT HITBOX & SHAPE OVERRIDES PER DOMAIN TYPE
-
-        // A. LEXICAL
+        // FURIGANA OVERLAY NODE STYLING
         {
-          selector: 'node[domain = "LEXICAL"]',
+          selector: "node[?isFuriganaOverlay]",
           style: {
-            shape: "round-rectangle",
-            width: "56px",
-            height: "38px",
-          },
-        },
-
-        // B. GRAMMAR
-        {
-          selector: 'node[domain = "GRAMMAR"]',
-          style: {
-            shape: "round-rectangle",
-            width: "56px",
-            height: "38px",
-          },
-        },
-
-        // C. DOMAIN HUB
-        {
-          selector: 'node[domain = "DOMAIN_HUB"]',
-          style: {
-            shape: "round-rectangle",
-            width: "90px",
-            height: "44px",
-          },
-        },
-
-        // PRIORITY-BASED OPACITY DIMMING (Asset + Text)
-        {
-          selector: 'node[priority = "HARD"]',
-          style: {
-            opacity: 1, // Brightest target
-          },
-        },
-        {
-          selector: 'node[priority = "REVIEW"]',
-          style: {
-            opacity: 0.6, // Medium attention
-          },
-        },
-        {
-          selector: 'node[priority = "SETTLED"]',
-          style: {
-            opacity: 0.2, // Subtle/Backgrounded
-          },
-        },
-        {
-          selector: "node.highlighted",
-          style: {
+            label: "data(displayLabel)",
+            color: "#ffffff",
+            "font-family": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+            "text-valign": "center",
+            "text-halign": "center",
+            "background-opacity": 0,
             "border-width": 0,
             "overlay-opacity": 0,
-            opacity: 1,
+            "active-bg-opacity": 0,
+            "events": "no",
           },
         },
-        // Edge Base Styling
+
+        // HIGH/HARD PRIORITY POSITIONING
+        {
+          selector: 'node[priority = "HARD"][!isFuriganaOverlay], node[priority = "HIGH"][!isFuriganaOverlay]',
+          style: { "font-size": "15px" },
+        },
+        {
+          selector: 'node[priority = "HARD"][?hasFuriganaChild], node[priority = "HIGH"][?hasFuriganaChild]',
+          style: { "text-margin-y": 6 }, // Push Kanji down ONLY IF furigana exists!
+        },
+        {
+          selector: 'node[priority = "HARD"][?isFuriganaOverlay], node[priority = "HIGH"][?isFuriganaOverlay]',
+          style: { "font-size": "8px", "text-margin-y": -12 }, // Perfect 50% Furigana
+        },
+        {
+          selector: 'node[domain = "LEXICAL"][priority = "HARD"], node[domain = "GRAMMAR"][priority = "HARD"]',
+          style: { width: "84px", height: "57px", opacity: 1 },
+        },
+
+        // REVIEW PRIORITY POSITIONING
+        {
+          selector: 'node[priority = "REVIEW"][!isFuriganaOverlay]',
+          style: { "font-size": "10px" },
+        },
+        {
+          selector: 'node[priority = "REVIEW"][?hasFuriganaChild]',
+          style: { "text-margin-y": 4 },
+        },
+        {
+          selector: 'node[priority = "REVIEW"][?isFuriganaOverlay]',
+          style: { "font-size": "5px", "text-margin-y": -7 }, // Tight fit for 38px height
+        },
+        {
+          selector: 'node[domain = "LEXICAL"][priority = "REVIEW"], node[domain = "GRAMMAR"][priority = "REVIEW"]',
+          style: { width: "56px", height: "38px", opacity: 0.7 },
+        },
+
+        // SETTLED PRIORITY POSITIONING
+        {
+          selector: 'node[priority = "SETTLED"][!isFuriganaOverlay]',
+          style: { "font-size": "7px" },
+        },
+        {
+          selector: 'node[priority = "SETTLED"][?hasFuriganaChild]',
+          style: { "text-margin-y": 2 },
+        },
+        {
+          selector: 'node[priority = "SETTLED"][?isFuriganaOverlay]',
+          style: { "font-size": "3.5px", "text-margin-y": -4 }, // Tight fit for 23px height
+        },
+        {
+          selector: 'node[domain = "LEXICAL"][priority = "SETTLED"], node[domain = "GRAMMAR"][priority = "SETTLED"]',
+          style: { width: "34px", height: "23px", opacity: 0.35 },
+        },
+
+        // DOMAIN HUBS (Always Single Line Centered)
+        {
+          selector: 'node[domain = "DOMAIN_HUB"][priority = "HARD"]',
+          style: { width: "115px", height: "56px", "font-size": "13px", opacity: 1 },
+        },
+        {
+          selector: 'node[domain = "DOMAIN_HUB"][priority = "REVIEW"]',
+          style: { width: "90px", height: "44px", "font-size": "10px", opacity: 0.7 },
+        },
+        {
+          selector: 'node[domain = "DOMAIN_HUB"][priority = "SETTLED"]',
+          style: { width: "54px", height: "26px", "font-size": "7px", opacity: 0.35 },
+        },
+
+        // SPOTLIGHT & HIGHLIGHT STYLING
+        {
+          selector: ".dimmed",
+          style: { opacity: 0.1 },
+        },
+        {
+          selector: "node.spotlight, node.highlighted",
+          style: { opacity: 1 },
+        },
+
+        // STRICT Z-INDEX LAYER HIERARCHY
+        { selector: 'node[domain = "LEXICAL"][priority = "HARD"]', style: { "z-index": 90 } },
+        { selector: 'node[domain = "LEXICAL"][priority = "REVIEW"]', style: { "z-index": 80 } },
+        { selector: 'node[domain = "LEXICAL"][priority = "SETTLED"]', style: { "z-index": 70 } },
+
+        { selector: 'node[domain = "GRAMMAR"][priority = "HARD"]', style: { "z-index": 60 } },
+        { selector: 'node[domain = "GRAMMAR"][priority = "REVIEW"]', style: { "z-index": 50 } },
+        { selector: 'node[domain = "GRAMMAR"][priority = "SETTLED"]', style: { "z-index": 40 } },
+
+        { selector: 'node[domain = "DOMAIN_HUB"][priority = "HARD"]', style: { "z-index": 30 } },
+        { selector: 'node[domain = "DOMAIN_HUB"][priority = "REVIEW"]', style: { "z-index": 20 } },
+        { selector: 'node[domain = "DOMAIN_HUB"][priority = "SETTLED"]', style: { "z-index": 10 } },
+
+        // EDGE STYLING & ARROWS
         {
           selector: "edge",
           style: {
@@ -401,9 +445,9 @@ export default function GraphCanvas({
             "curve-style": "bezier",
             label: "data(label)",
             color: "#d4d4d8",
-            "font-size": "9px",
+            "font-size": "6px",
             "text-rotation": "autorotate",
-            "text-margin-y": -6,
+            "text-margin-y": -5,
             "text-background-opacity": 0,
 
             "overlay-opacity": 0,
@@ -440,21 +484,12 @@ export default function GraphCanvas({
             "line-color": "#a855f7",
           },
         },
-        // Spotlight Dimming
-        {
-          selector: ".dimmed",
-          style: { opacity: 0.1 },
-        },
-        {
-          selector: "node.spotlight",
-          style: { opacity: 1 },
-        },
       ],
     });
 
     // TAP LISTENER
     cy.on("tap", "node", (evt) => {
-      const clickedNodeId = evt.target.id();
+      const clickedNodeId = evt.target.id().replace("_furigana", "");
       const now = Date.now();
       const lastTap = lastTapInfoRef.current;
       const originalEvent = evt.originalEvent as MouseEvent;
@@ -534,7 +569,7 @@ export default function GraphCanvas({
     };
   }, []);
 
-  // DYNAMIC DIFF UPDATER & LAYER FILTERING LENS
+  // DYNAMIC DIFF UPDATER & COSE SEPARATION BALANCING
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy) return;
@@ -562,9 +597,10 @@ export default function GraphCanvas({
       const currentCyNodes = new Set(cy.nodes().map((n) => n.id()));
       const incomingNodeIds = new Set(lensFilteredNodes.map((n) => n.id));
 
-      // Remove nodes not matching active lens
+      // Remove nodes no longer matching active lens
       cy.nodes().forEach((n) => {
-        if (!incomingNodeIds.has(n.id())) {
+        const cleanId = n.id().replace("_furigana", "");
+        if (!incomingNodeIds.has(cleanId)) {
           cy.remove(n);
         }
       });
@@ -572,26 +608,66 @@ export default function GraphCanvas({
       // Add newly matching nodes
       const nodesToAdd = lensFilteredNodes.filter((n) => !currentCyNodes.has(n.id));
       if (nodesToAdd.length > 0) {
-        cy.add(
-          nodesToAdd.map((node) => ({
+        const elementsToAdd: any[] = [];
+
+        nodesToAdd.forEach((node) => {
+          const isHub = node.domain_type === "DOMAIN_HUB";
+          const hasReading = hasKanji(node.label) && !!node.reading;
+
+          // 1. Main Kanji Node
+          elementsToAdd.push({
             group: "nodes",
             data: {
               id: node.id,
-              displayLabel: formatNodeLabel(node),
+              displayLabel: node.label,
               bgAsset: getAssetUrl(node.domain_type, node.priority_status),
               priority: node.priority_status || "REVIEW",
               domain: node.domain_type || "LEXICAL",
+              isFuriganaOverlay: false,
+              hasFuriganaChild: !isHub && hasReading,
             },
-          }))
+          });
+
+          // 2. Child Furigana Node
+          if (!isHub && hasReading) {
+            elementsToAdd.push({
+              group: "nodes",
+              data: {
+                id: `${node.id}_furigana`,
+                parent: node.id,
+                displayLabel: node.reading,
+                priority: node.priority_status || "REVIEW",
+                domain: node.domain_type || "LEXICAL",
+                isFuriganaOverlay: true,
+              },
+            });
+          }
+        });
+
+        cy.add(elementsToAdd);
+
+        // Position layout for main nodes
+        const mainUnpositionedNodes = cy.nodes().filter(
+          (n) => !currentCyNodes.has(n.id()) && !n.data("isFuriganaOverlay")
         );
 
-        const unpositionedElements = cy.nodes().filter((n) => !currentCyNodes.has(n.id()));
-        unpositionedElements.layout({
+        mainUnpositionedNodes.layout({
           name: "cose",
           animate: false,
-          nodeRepulsion: () => 14000,
-          idealEdgeLength: () => 130,
+          fit: true,
+          padding: 80,
+          nodeRepulsion: () => 180000,
+          idealEdgeLength: () => 140,
+          edgeElasticity: () => 100,
+          gravity: 0.25,
+          numIter: 1000,
         }).run();
+
+        setTimeout(() => {
+          if (cyRef.current) {
+            cyRef.current.fit(undefined, 80);
+          }
+        }, 50);
       }
 
       // Sync Edges
@@ -681,7 +757,7 @@ export default function GraphCanvas({
         </div>
 
         {/* Row 2: Click to Link */}
-        <div className="toolbar-row row-2">
+        <div className="toolbar-row row-2-stacked">
           <span className="control-label">
             {sourceNodeId ? "Select target:" : "Click to link:"}
           </span>

@@ -75,7 +75,7 @@
 /* Base Toolbar Row */
 .canvas-toolbar .toolbar-row {
   display: flex;
-  align-items: center;
+  align-items: left;
   gap: 8px;
   width: max-content;
 }
@@ -87,6 +87,21 @@
 
 .canvas-toolbar .toolbar-row.row-2 {
   margin-bottom: 8px;
+}
+
+.row-2-stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.row-2-stacked .select-wrapper {
+  width: 100%;
+}
+
+.row-2-stacked select {
+  width: 100%;
 }
 
 .canvas-toolbar .toolbar-row.row-3 {
