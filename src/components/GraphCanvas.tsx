@@ -279,8 +279,15 @@ export default function GraphCanvas({
 
   const handleFitView = () => {
     if (!cyRef.current) return;
-    cyRef.current.fit(undefined, 60);
+    cyRef.current.fit(undefined, 100);
   };
+
+  // Auto-center camera with generous padding on initial load
+  setTimeout(() => {
+    if (cyRef.current) {
+      cyRef.current.fit(undefined, 100);
+    }
+  }, 50);
 
   // INITIALIZE CANVAS & STYLESHEET
   useEffect(() => {
@@ -668,7 +675,7 @@ export default function GraphCanvas({
 
             // Deterministic non-overlapping spiral orbit placement
             const goldenAngle = 2.39996; // Golden ratio angle in radians
-            const radius = 110 + index * 35;
+            const radius = 70 + index * 32;
             const angle = index * goldenAngle;
             initialPos = {
               x: centerTarget.x + Math.cos(angle) * radius,
